@@ -1,0 +1,14 @@
+#!/bin/bash
+echo "This tool will flash the AT firmware onto your ESP8266."
+echo "Confirm flash?"
+echo "(Press ENTER to confirm, CTRL-C to exit.)"
+read
+
+echo "On the ESP8266 board:"
+echo "  Hold down GPIO0 and RESET."
+echo "  Then release RESET."
+echo "  Then release GPIO0."
+echo "Once you have done these steps, press ENTER."
+read
+
+sudo python ../../esptool.py --port /dev/ttyUSB0 write_flash 0x00000 boot_v1.1.bin 0x01000 user1.bin 0x7C000 esp_init_data_default.bin 0x7E000 blank.bin
