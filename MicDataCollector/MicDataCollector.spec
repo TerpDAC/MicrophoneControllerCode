@@ -4,7 +4,7 @@ block_cipher = None
 
 
 a = Analysis(['MicDataCollector.py'],
-             pathex=['/home/albert/MicrophoneControllerCode/MicDataCollector'],
+             pathex=['C:\\Users\\Albert\\Documents\\GitHub\\MicrophoneControllerCode\\MicDataCollector'],
              binaries=None,
              datas=None,
              hiddenimports=[],
@@ -18,11 +18,16 @@ pyz = PYZ(a.pure, a.zipped_data,
              cipher=block_cipher)
 exe = EXE(pyz,
           a.scripts,
-          a.binaries,
-          a.zipfiles,
-          a.datas,
+          exclude_binaries=True,
           name='MicDataCollector',
           debug=False,
           strip=None,
           upx=True,
-          console=False )
+          console=True )
+coll = COLLECT(exe,
+               a.binaries,
+               a.zipfiles,
+               a.datas,
+               strip=None,
+               upx=True,
+               name='MicDataCollector')

@@ -67,6 +67,8 @@ class MDCWindow(QtGui.QDialog, MicDataCollectorGUI.Ui_mdcDialog):
         pb.close()
     
     def doneWork(self):
+        deferTask = self.task
+        
         if self.task == "refreshSerialPorts":
             self.ports = self.workThread.getResult()
             self.serialPortCombo.clear()
@@ -82,6 +84,13 @@ class MDCWindow(QtGui.QDialog, MicDataCollectorGUI.Ui_mdcDialog):
         self.serialPortCombo.setEnabled(True)
         self.refreshBtn.setEnabled(True)
         self.startBtn.setEnabled(True)
+        
+        if deferTask == "startCollection":
+            print("Now reset the Arduino - look on the board, and press the RESET button. Then press OK.")
+            QtGui.QMessageBox.information(None, "Reset your Arduino!",
+                    "Now reset the Arduino - look on the board, and press the RESET button. Then press OK.",
+                    QtGui.QMessageBox.Ok)
+            self.refreshSerialPorts()
     
     def freeze(self):
         self.serialPortCombo.setEnabled(False)
@@ -250,12 +259,16 @@ def get_data(port, csvfile):
     
     #pb.updatePulse(False)
     
-    samps = 60
+    samps = (300 + 5) * 10
+    
+    samps_ct = 10
+    old_samps_ct = 0
+    cur_samps_ct = 0
     
     while 1:
         now = time.time()
         
-        buf = s.read(10000)
+        buf = s.read(100000)
         dataBuf += buf
         
         ct_arr = dataBuf.split("\n")
@@ -264,15 +277,28 @@ def get_data(port, csvfile):
         if not ct_arr[-1].isdigit():
             s.write("GOGOGO\r\n")
         
-        if ct >= samps:
+        #if ct >= samps:
+        #    break
+        
+        ends_arr = [x for x in ct_arr if x.strip() == "END"]
+        
+        cur_samps_ct = len(ends_arr)
+        
+        if len(ends_arr) == samps_ct:
             break
+        else:
+            if old_samps_ct != cur_samps_ct:
+                old_samps_ct = cur_samps_ct
+                print("Got %i samples!" % old_samps_ct)
+        
         #print buf
         #if (now - startTime >= 10):
         #    break
         
-        if ct > 0:
+        if cur_samps_ct > 0: #OLD: ct
             pb.disablePulse()
-            pb.setProgress(100 * ct / samps)
+            #pb.setProgress(100 * ct / samps)
+            pb.setProgress(100 * cur_samps_ct / samps_ct)
         #prog = 100 * ct / samps
         #pb.updateProg(prog)
         
