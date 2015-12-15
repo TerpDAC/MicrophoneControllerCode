@@ -22,7 +22,7 @@
  *        64       |      17.8 kHz       |   1   |   1   |   0
  *        128      |      8.91 kHz       |   1   |   1   |   1
  */
-//#define SENDTIME 1
+#define SENDTIME 1
 // Print number of samples and difference between end time and begin time of samples
 //#define PRINTTIME 1
 // Wait for ack from testing program to signal data collection
@@ -110,6 +110,7 @@ void loop() {
   }
   endTime = micros();
 #if SENDTIME
+  Serial.println("START");
   Serial.println(String(numberSamples));
   Serial.println(String(beginTime));
   Serial.println(String(endTime));
@@ -118,6 +119,9 @@ void loop() {
     //output = String(samples[i]);
     Serial.println(String(samples[i]));
   }
+#if SENDTIME
+  Serial.println("END");
+#endif
 #if PRINTTIME
   Serial.print("Samples taken = ");
   Serial.println(numberSamples);
