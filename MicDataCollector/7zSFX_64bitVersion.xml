@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+<Settings>
+  <General>
+    <ExtractMode>Temp</ExtractMode>
+    <HideProgress>False</HideProgress>
+    <ProgressDisableCancel>False</ProgressDisableCancel>
+    <SelfDelete>False</SelfDelete>
+    <CompressStub>True</CompressStub>
+    <XPStyles>True</XPStyles>
+    <HideTitleIcon>False</HideTitleIcon>
+    <PromptShowSFXIcon>False</PromptShowSFXIcon>
+    <Overwrite>All</Overwrite>
+    <MessageBegin Show="False">Start extraction</MessageBegin>
+    <MessageCancel Show="False">Are you sure you want to cancel?</MessageCancel>
+    <MessageFinish Show="False">Files were successfully extracted</MessageFinish>
+    <TitleText>Microphone Data Collector</TitleText>
+    <ExtractPathText>Select extraction path</ExtractPathText>
+    <ExtractCancelText>Cancel</ExtractCancelText>
+    <ExtractDialogText>Preparing to start...</ExtractDialogText>
+    <ExtractTitleText>Preparing to start...</ExtractTitleText>
+    <ExtractShowIcon>False</ExtractShowIcon>
+    <ProgressPercent>-1</ProgressPercent>
+    <ProgressShowIcon>True</ProgressShowIcon>
+    <Icon>C:\Program Files (x86)\7-Zip SFX Maker\Resources\03.ico</Icon>
+  </General>
+  <Tasks>
+    <Item Enabled="True">RunProgram="\"%%T\\MicDataCollector.exe\""</Item>
+  </Tasks>
+  <VersionString>
+    <Item Name="Comments" Value="" Enabled="True" />
+    <Item Name="CompanyName" Value="Terrapin Development and Consulting" Enabled="True" />
+    <Item Name="FileDescription" Value="Microphone Data Collector" Enabled="True" />
+    <Item Name="FileVersion" Value="1, 0, 0, 0" Enabled="True" />
+    <Item Name="InternalName" Value="MicDataCollector" Enabled="True" />
+    <Item Name="LegalCopyright" Value="Copyright © 2015 Terrapin Development and Consulting." Enabled="True" />
+    <Item Name="LegalTrademarks" Value="" Enabled="True" />
+    <Item Name="OriginalFilename" Value="MicDataCollector_64.exe" Enabled="True" />
+    <Item Name="PrivateBuild" Value="Dec 13, 2015" Enabled="True" />
+    <Item Name="ProductName" Value="MicDataCollector" Enabled="True" />
+    <Item Name="ProductVersion" Value="1, 0, 0, 0" Enabled="True" />
+    <Item Name="SpecialBuild" Value="" Enabled="True" />
+  </VersionString>
+</Settings>
