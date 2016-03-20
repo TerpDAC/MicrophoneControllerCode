@@ -1,6 +1,6 @@
 # Arduino project
 # Hide WiFi configuration!
-*/WiFiConfig.h
+WiFiConfig.h
 
 #################
 ## Eclipse
