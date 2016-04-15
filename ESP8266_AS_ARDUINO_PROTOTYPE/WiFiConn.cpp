@@ -156,6 +156,7 @@ void submitSum(uint32_t curTime, long totalSampleCount, long highTotalCount, lon
     Serial.print(highTotalCount);
     Serial.print(",");
     Serial.print(midTotalCount);
+    Serial.print(",");
     Serial.print(totalSampleCount - (highTotalCount + midTotalCount));
     Serial.println(" HTTP/1.1");
     Serial.print("Host: ");
