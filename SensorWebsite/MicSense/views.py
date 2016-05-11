@@ -88,6 +88,24 @@ def rawdata():
 
     return output
 
+@app.route('/rawdataall')
+def rawdataall():
+    output = "Date,High,Med,Low\n"
+
+    for e in Data.query.all():
+        if e.timestamp:
+            new_ts = e.timestamp.replace(tzinfo=timezone('UTC')).astimezone(timezone('US/Eastern'))
+            print("OBJECT: " + str(e))
+            print(new_ts.strftime("%Y/%m/%d %H:%M:%S"))
+            buf = []
+            buf.append(new_ts.strftime("%Y/%m/%d %H:%M:%S"))
+            buf.append(str(e.high))
+            buf.append(str(e.med))
+            buf.append(str(e.low))
+            output += ",".join(buf) + "\n"
+
+    return output
+
 @app.route('/datasubmit')
 def dataSubmit():
     d = request.args.get('d', None)
