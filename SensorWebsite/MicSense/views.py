@@ -7,6 +7,8 @@ from MicSense.db import db
 import datetime
 from pytz import timezone
 
+# This is really cool!
+
 @app.route('/<path:path>')
 def static_proxy(path):
     # send_static_file will guess the correct MIME type
