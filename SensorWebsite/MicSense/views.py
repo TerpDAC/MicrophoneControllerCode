@@ -8,6 +8,7 @@ import datetime
 from pytz import timezone
 
 # This is really cool!
+# YAAAAAASS
 
 @app.route('/<path:path>')
 def static_proxy(path):
