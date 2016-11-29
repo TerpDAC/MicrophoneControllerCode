@@ -109,6 +109,8 @@ def rawdataall():
 @app.route('/datasubmit')
 def dataSubmit():
     d = request.args.get('d', None)
+    #stores the macAddress as a string 
+    id = request.args.get('id', None)
 
     if not d:
         return "ERROR"
