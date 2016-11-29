@@ -142,7 +142,7 @@ int getWiFiEnabled() {
   return wifiEnabled;
 }
 
-void submitSum(uint32_t curTime, long totalSampleCount, long highTotalCount, long midTotalCount) {
+void submitSum(uint32_t curTime, long totalSampleCount, long highTotalCount, long midTotalCount, byte[] address) {
   Serial.println("Submit code goes here!");
 
   // Use WiFiClient class to create TCP connections
@@ -158,6 +158,20 @@ void submitSum(uint32_t curTime, long totalSampleCount, long highTotalCount, lon
     Serial.print(midTotalCount);
     Serial.print(",");
     Serial.print(totalSampleCount - (highTotalCount + midTotalCount));
+
+    Serial.print("&id=");
+    Serial.print(address[5], HEX);
+    Serial.print(":");
+    Serial.print(address[4], HEX);
+    Serial.print(":");
+    Serial.print(address[3], HEX);
+    Serial.print(":");
+    Serial.print(address[2], HEX);
+    Serial.print(":");
+    Serial.print(address[1], HEX);
+    Serial.print(":");
+    Serial.print(address[0], HEX);
+
     Serial.println(" HTTP/1.1");
     Serial.print("Host: ");
     Serial.println(server);
@@ -172,6 +186,20 @@ void submitSum(uint32_t curTime, long totalSampleCount, long highTotalCount, lon
     client.print(midTotalCount);
     client.print(",");
     client.print(totalSampleCount - (highTotalCount + midTotalCount));
+
+    client.print("&id=");
+    client.print(address[5], HEX);
+    client.print(":");
+    client.print(address[4], HEX);
+    client.print(":");
+    client.print(address[3], HEX);
+    client.print(":");
+    client.print(address[2], HEX);
+    client.print(":");
+    client.print(address[1], HEX);
+    client.print(":");
+    client.print(address[0], HEX);
+
     client.println(" HTTP/1.1");
     client.print("Host: ");
     client.println(server);
