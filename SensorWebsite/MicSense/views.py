@@ -134,3 +134,15 @@ def dataSubmit():
     db.session.commit()
 
     return "OK"
+
+
+@app.route("/selectAduino')
+def selectArduino():
+    id = request.args.get('id', None)
+
+    if not id:
+        return "ERROR"
+
+    print(("Mac Address: %s") %id)
+
+    
