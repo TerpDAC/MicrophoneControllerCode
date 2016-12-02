@@ -110,9 +110,9 @@ def rawdataall():
 def dataSubmit():
     d = request.args.get('d', None)
     #stores the macAddress as a string 
-    id = request.args.get('id', None)
+    id_address = request.args.get('id', None)
 
-    if not d:
+    if not d or not id_address:
         return "ERROR"
 
     data = d.split(",")
@@ -134,15 +134,3 @@ def dataSubmit():
     db.session.commit()
 
     return "OK"
-
-
-@app.route("/selectAduino')
-def selectArduino():
-    id = request.args.get('id', None)
-
-    if not id:
-        return "ERROR"
-
-    print(("Mac Address: %s") %id)
-
-    
