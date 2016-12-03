@@ -122,6 +122,7 @@ def dataSubmit():
         return "ERROR"
 
     data = d.split(",")
+    id_address = id_address.replace(":", "")
 
     print("INPUT INCOMING")
     print(d)
