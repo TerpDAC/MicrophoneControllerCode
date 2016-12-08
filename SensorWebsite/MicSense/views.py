@@ -24,24 +24,40 @@ def floor():
 def floorstatus():
     #return ",".join(["low", ["low", "med", "high"][random.randrange(0,3)]] + (["low"]*5))
 
+    floorNum = request.args.get('floor', None)
+    #index corresponds to floor, index 0 should not be used
+    total = [0]*8
+    high = [0]*8
+    med = [0]*8
+    low = [0]*8
+    stat = ['']*8
     if Data.query.count() == 0:
         return ",".join(["low"] * 7)
     else:
-        # Negative sign indicates reverse order (most recent)
-        e = Data.query.order_by('-timestamp').first() #curdata[-1]
-        print("floorstatus: " + str(e.timestamp))
-        # high, med, low
-        total = e.high + e.med + e.low
+        for a in Hardware.query.all():
+            # Negative sign indicates reverse order (most recent)
+            e = a.isolated_data.query.order_by('-timestamp').first()
+            print("floorstatus: " + str(e.timestamp))
+            #stores the total, high, med, and low values for each floor
+            total[a.floor_num] += e.high + e.med + e.low
+            high[a.floor_num] += e.high
+            med[a.floor_num] += e.med
+            low[a.floor_num] += e.low
+    
+    for x in range(1,8):
         #if ((e[3] * 100) / total) >= 47:
-        if (e.low * 100) / total >= 50:
-            stat = "low"
+        if (low[x] * 100) / total[x] >= 50:
+            stat[x] = "low"
         else:
-            total_no_low = total - e.low
-            if ((e.high * 100) / total_no_low) >= 25:
-                stat = "high"
+            total_no_low = total[x] - low[x]
+            if ((high[x] * 100) / total_no_low) >= 25:
+                stat[x] = "high"
             else:
-                stat = "med"
-    return ",".join(["low", stat] + (["low"]*5))
+                stat[x] = "med"
+    if not floorNum or floorNum > 7 or floorNum < 1:
+        return ",".join(stat)
+    else:
+        return stat(floorNum)
 
 @app.route('/floorstatus-dbg')
 def floorstatusdbg():
