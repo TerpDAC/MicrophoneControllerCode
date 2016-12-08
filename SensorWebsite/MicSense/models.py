@@ -15,4 +15,10 @@ class Data(db.Model):
     #name = db.Column(db.String(80), unique=True)
     #description = db.Column(db.String(255))
 
+class Hardware(db.Model):
+    floor_num = Column(Integer())
+    loaction = Column(String(100))
+    macAddress = Column(String(12), ForeignKey('data.id_address'))
+    isolated_data = relationship('Data')
+    
 initDatabase()
