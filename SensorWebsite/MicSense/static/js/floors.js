@@ -9,58 +9,65 @@ function updateFloorStatus() {
         floorStatuses = statusString.split(",");
     
         for (int i = 0; i < floorStatuses.length; i++) {
-            newFloorStatus = floorStatuses[i];
+            if (floorStatuses[i] != curFloorStatus[i]) {
+                volChange[i] += 1;
+            }
+        }
+        
+        for (int i = 0; i < volChange.length; i++) {
+            if (volChange[i] == 1) {
+                newFloorStatus = floorStatuses[i];
             
-            if (newFloorStatus != curFloorStatus[i]) {
-                $(sensorArr[i]).removeClass("waves-green");
-                $(sensorArr[i]).removeClass("waves-yellow");
-                $(sensorArr[i]).removeClass("waves-red");
+                $(floorArr[i]).removeClass("waves-green");
+                $(floorArr[i]).removeClass("waves-yellow");
+                $(floorArr[i]).removeClass("waves-red");
+                
+                switch (newFloorStatus) {
+                    case 'low':
+                        curClasses = $(floorArr[i]).prop('class');
 
-                if (newFloorStatus == "low") {
-                    curClasses = $(sensorArr[i]).prop('class');
+                        $(floorArr[i]).addClass("waves-green");
+                        Waves.ripple(floorArr[i]);
 
-                    $(sensorArr[i]).addClass("waves-green");
-                    Waves.ripple(sensorArr[i]);
+                        if (curClasses.search("high") != -1) {
+                            $(floorArr[i]).switchClass("high", "low", 1000, "easeInOutQuad");
+                        } else {
+                            $(floorArr[i]).switchClass("med", "low", 1000, "easeInOutQuad");
+                        }
 
-                    if (curClasses.search("high") != -1) {
-                        $(sensorArr[i]).switchClass("high", "low", 1000, "easeInOutQuad");
-                    } else {
-                        $(sensorArr[i]).switchClass("med", "low", 1000, "easeInOutQuad");
-                    }
+                        $(floorArr[i] + ' div:nth-child(2)').html('<i class="fa fa-volume-off"></i>');
+                        break;
 
-                    $(sensorArr[i] + ' div:nth-child(2)').html('<i class="fa fa-volume-off"></i>');
+                    case 'med':
+                        curClasses = $(floorArr[i]).prop('class');
+
+                        $(floorArr[i]).addClass("waves-yellow");
+                        Waves.ripple(floorArr[i]);
+
+                        if (curClasses.search("high") != -1) {
+                            $(floorArr[i]).switchClass("high", "med", 1000, "easeInOutQuad");
+                        } else {
+                            $(floorArr[i]).switchClass("low", "med", 1000, "easeInOutQuad");
+                        }
+
+                        $(floorArr[i] + ' div:nth-child(2)').html('<i class="fa fa-volume-down"></i>');
+                        break;
+
+                    case 'high':
+                        curClasses = $(floorArr[i]).prop('class');
+
+                        $(floorArr[i]).addClass("waves-red");
+                        Waves.ripple(floorArr[i]);
+
+                        if (curClasses.search("med") != -1) {
+                            $(floorArr[i]).switchClass("med", "high", 1000, "easeInOutQuad");
+                        } else {
+                            $(floorArr[i]).switchClass("low", "high", 1000, "easeInOutQuad");
+                        }
+
+                        $(floorArr[i] + ' div:nth-child(2)').html('<i class="fa fa-volume-up"></i>');
+                    
                 }
-
-                if (newFloorStatus == "med") {
-                    curClasses = $(sensorArr[i]).prop('class');
-
-                    $(sensorArr[i]).addClass("waves-yellow");
-                    Waves.ripple(sensorArr[i]);
-
-                    if (curClasses.search("high") != -1) {
-                        $(sensorArr[i]).switchClass("high", "med", 1000, "easeInOutQuad");
-                    } else {
-                        $(sensorArr[i]).switchClass("low", "med", 1000, "easeInOutQuad");
-                    }
-
-                    $(sensorArr[i] + ' div:nth-child(2)').html('<i class="fa fa-volume-down"></i>');
-                }
-
-                if (newFloorStatus == "high") {
-                    curClasses = $(sensorArr[i]).prop('class');
-
-                    $(sensorArr[i]).addClass("waves-red");
-                    Waves.ripple(sensorArr[i]);
-
-                    if (curClasses.search("med") != -1) {
-                        $(sensorArr[i]).switchClass("med", "high", 1000, "easeInOutQuad");
-                    } else {
-                        $(sensorArr[i]).switchClass("low", "high", 1000, "easeInOutQuad");
-                    }
-
-                    $(sensorArr[i] + ' div:nth-child(2)').html('<i class="fa fa-volume-up"></i>');
-                }
-
                 curFloorStatus[i] = newFloorStatus;
             }
         }
@@ -71,11 +78,13 @@ function updateFloorStatus() {
 function autoRefreshFloorStatus() {
     updateFloorStatus();
 }
-
-var sensorArr = ['#sensor1', '#sensor2', '#sensor3', '#sensor4'];		//takes place of #floor2 variable in code (floor generalized to sensor)
-var curFloorStatus = ['low', 'low', 'low', 'low'];				//create arr for current status for each sensor, all initialized to low
-for(int i = 0; i < sensorArr.length; i++) {
-    Waves.attach(sensorArr[i], ['waves-block']);
+//takes place of #floor2 variable in code (floor generalized to sensor)
+var floorArr = ['#floor1', '#floor2', '#floor3', '#floor4', '#floor5', '#floor6', '#floor7'];
+//create arr for current status for each sensor, all initialized to low
+var curFloorStatus = ['low', 'low', 'low', 'low', 'low', 'low', 'low'];
+var volChange = [0,0,0,0,0,0,0]; //0 if floor stayed the same, 1 if change
+for(int i = 0; i < floorArr.length; i++) {
+    Waves.attach(floorArr[i], ['waves-block']);
 }
 
 setInterval(autoRefreshFloorStatus, 5000);
