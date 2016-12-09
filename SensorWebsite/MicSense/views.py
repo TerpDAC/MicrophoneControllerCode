@@ -171,11 +171,14 @@ def dataSubmit():
         return "ERROR"
 
     data = d.split(",")
-    id_address = id_address.replace(":", "")
+    #id_address = id_address.replace(":", "")
 
     print("INPUT INCOMING")
     print(d)
     print(data)
+
+    #retrieves the sensor trying to submit data
+    sensor = Sensor.query.filter(mac_address = id_address)
 
     timestamp = int(data[0])
     high = int(data[1])
@@ -186,7 +189,13 @@ def dataSubmit():
     #curdata.append(list(new_data))
 
     new_data = Data(timestamp = datetime.datetime.fromtimestamp(timestamp).replace(tzinfo=timezone('UTC')), high = high, med = med, low = low)
+    if not sensor:
+        sensor = Sensor(floor_num = 2, location = 'Near the stairs', mac_address = id_address)
+        db.session.add(sensor)
+    
+    sensor.data.append(new_data)
     db.session.add(new_data)
+    #db.session.add(sensor) do I need to add every time I change something?
     db.session.commit()
 
     return "OK"
