@@ -3,10 +3,10 @@ from flask.ext.sqlalchemy import SQLAlchemy
 from MicSense.db import db, initDatabase
 
 class Data(db.Model):
-    #stores the mac address, no colons
-    id_address = db.Column(db.String(12))
 
     id = db.Column(db.Integer(), primary_key=True)
+    #stores the mac address, no colons
+    mac_address = db.Column(db.String(12))
     timestamp = db.Column(db.DateTime())
     high = db.Column(db.Integer())
     med = db.Column(db.Integer())
@@ -16,9 +16,10 @@ class Data(db.Model):
     #description = db.Column(db.String(255))
 
 class Hardware(db.Model):
-    floor_num = Column(Integer())
-    loaction = Column(String(100))
-    macAddress = Column(String(12), ForeignKey('data.id_address'))
-    isolated_data = relationship('Data')
+
+    id = db.Column(db.Integer(), primary_key=True)    
+    floor_num = db.Column(db.Integer())
+    location = db.Column(db.String(100))
+    mac_address = db.Column(db.String(12), db.ForeignKey('data.id_address'))
     
 initDatabase()
