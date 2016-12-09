@@ -219,3 +219,6 @@ pip-log.txt
 .mr.developer.cfg
 
 *.pyc
+
+# Configuration
+SensorWebsite/MicSense/config.py
