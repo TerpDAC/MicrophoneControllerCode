@@ -15,11 +15,11 @@ class Data(db.Model):
     #name = db.Column(db.String(80), unique=True)
     #description = db.Column(db.String(255))
 
-class Hardware(db.Model):
+class Sensor(db.Model):
 
     id = db.Column(db.Integer(), primary_key=True)    
     floor_num = db.Column(db.Integer())
     location = db.Column(db.String(100))
-    mac_address = db.Column(db.String(12), db.ForeignKey('data.id_address'))
+    mac_address = db.Column(db.String(12), db.ForeignKey('data.mac_address'))
     
 initDatabase()
