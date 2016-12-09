@@ -10,7 +10,7 @@ class Data(db.Model):
     med = db.Column(db.Integer())
     low = db.Column(db.Integer())
     #Foreign key referencing Sensor
-    mac_address = db.Column(db.String(12), ForeignKey='sensor.mac_address')
+    mac_address = db.Column(db.String(12), db.ForeignKey='sensor.mac_address')
 
     #name = db.Column(db.String(80), unique=True)
     #description = db.Column(db.String(255))
