@@ -87,45 +87,38 @@ def rawdata():
 
     address = request.args.get('id', None)
 
-    if not address:
-        output = "Mac Address,Floor,Date,High,Med,Low\n"
-
+    if address:
         current_time = datetime.datetime.utcnow()
         one_hour_ago = current_time - datetime.timedelta(hours=1)
-
-        for a in Hardware.query.all():
-            for e in a.isolated_data.query.filter(Hardware.isolated_data.timestamp >= one_hour_ago).all():
-                if e.timestamp
-                    new_ts = e.timestamp.replace(tzinfo=timezone('UTC')).astimezone(timezone('US/Eastern'))
-                    print("OBJECT: " + str(e))
-                    print(new_ts.strftime("%Y/%m/%d %H:%M:%S"))
-                    buf = []
-                    macAddress = (e.id_address)[0,2] + ':' + (e.id_address)[2,4] + ':' + (e.id_address)[4,6] + ':' + (e.id_address)[6,8] + ':' + (e.id_address)[8,10] + ':' + (e.id_address)[10,12]
-                    buf.append(macAddress)
-                    buf.append(a.floor)
-                    buf.append(new_ts.strftime("%Y/%m/%d %H:%M:%S"))
-                    buf.append(str(e.high))
-                    buf.append(str(e.med))
-                    buf.append(str(e.low))
-                    output += ",".join(buf) + "\n"                
+        
+        sensor = Sensor.query.filter(mac_address = address).first_or_404()
+        output = 'Floor: '+ str(sensor.floor_num) + ', Location: ' + sensor.location + ', Mac Address: ' + sensor.mac_address + '\n'
+        output += 'Date,High,Med,Low\n'
+        for e in sensor.data.query.filter(sensor.data.timestamp >= one_hour_ago).all():
+            new_ts = e.timestamp.replace(tzinfo=timezone('UTC')).astimezone(timezone('US/Eastern'))
+            print('Object: ' + str(e))
+            print(new_ts.strftime("%Y/%m/%d %H:%M:%S"))
+            buf = []
+            buf.append(new_ts.strftime("%Y/%m/%d %H:%M:%S"))
+            buf.append(str(e.high))
+            buf.append(str(e.med))
+            buf.append(str(e.low))
+            output += ','.join(buf) + '\n'
     else:
-        if Hardware.query.filter(address):
-            a = Hardware.query.filter(address).all()
-            for e in a.isolated_data.query.filter(a.timestamp >= one_hour_ago).all():
-                if e.timestamp
+        output = ''
+        for i in range(1,8):
+            for sensor in Sensor.query.filter(floor_num=i).all():
+                output += 'Floor: ' + str(i) + ', Location: ' + sensor.location + 'Mac Address: ' + sensor.mac_address + '\n'
+                for e in sensor.data.query.filter(sensor.data.timestamp >= one_hour_ago).all():
                     new_ts = e.timestamp.replace(tzinfo=timezone('UTC')).astimezone(timezone('US/Eastern'))
-                    print("OBJECT: " + str(e))
+                    print('Object: ' + str(e))
                     print(new_ts.strftime("%Y/%m/%d %H:%M:%S"))
                     buf = []
-                    macAddress = (address)[0,2] + ':' + (address)[2,4] + ':' + (address)[4,6] + ':' + (address)[6,8] + ':' + (address)[8,10] + ':' + (address)[10,12]
-                    buf.append(macAddress)
-                    buf.append(a.floor)
                     buf.append(new_ts.strftime("%Y/%m/%d %H:%M:%S"))
                     buf.append(str(e.high))
                     buf.append(str(e.med))
                     buf.append(str(e.low))
-                    output += ",".join(buf) + "\n"
-
+                    output += ','.join(buf) + '\n'
     return output
         #for e in curdata:
 ##        for e in Data.query.filter(Data.timestamp >= one_hour_ago).all():
