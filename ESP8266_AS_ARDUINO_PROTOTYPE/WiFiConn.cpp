@@ -161,15 +161,10 @@ void submitSum(uint32_t curTime, long totalSampleCount, long highTotalCount, lon
 
     Serial.print("&id=");
     Serial.print(address[5], HEX);
-    Serial.print(":");
     Serial.print(address[4], HEX);
-    Serial.print(":");
     Serial.print(address[3], HEX);
-    Serial.print(":");
     Serial.print(address[2], HEX);
-    Serial.print(":");
     Serial.print(address[1], HEX);
-    Serial.print(":");
     Serial.print(address[0], HEX);
 
     Serial.println(" HTTP/1.1");
@@ -189,15 +184,10 @@ void submitSum(uint32_t curTime, long totalSampleCount, long highTotalCount, lon
 
     client.print("&id=");
     client.print(address[5], HEX);
-    client.print(":");
     client.print(address[4], HEX);
-    client.print(":");
     client.print(address[3], HEX);
-    client.print(":");
     client.print(address[2], HEX);
-    client.print(":");
     client.print(address[1], HEX);
-    client.print(":");
     client.print(address[0], HEX);
 
     client.println(" HTTP/1.1");
