@@ -95,7 +95,7 @@ def rawdata():
 
         for a in Hardware.query.all():
             for e in a.isolated_data.query.filter(Hardware.isolated_data.timestamp >= one_hour_ago).all():
-                if e.timestamp
+                if e.timestamp:
                     new_ts = e.timestamp.replace(tzinfo=timezone('UTC')).astimezone(timezone('US/Eastern'))
                     print("OBJECT: " + str(e))
                     print(new_ts.strftime("%Y/%m/%d %H:%M:%S"))
@@ -112,7 +112,7 @@ def rawdata():
         if Hardware.query.filter(address):
             a = Hardware.query.filter(address).all()
             for e in a.isolated_data.query.filter(a.timestamp >= one_hour_ago).all():
-                if e.timestamp
+                if e.timestamp:
                     new_ts = e.timestamp.replace(tzinfo=timezone('UTC')).astimezone(timezone('US/Eastern'))
                     print("OBJECT: " + str(e))
                     print(new_ts.strftime("%Y/%m/%d %H:%M:%S"))
