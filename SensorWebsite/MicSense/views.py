@@ -22,31 +22,38 @@ def floor():
 
 @app.route('/floorstatus')
 def floorstatus():
+'''Retrieves current data for every floor and evaluates the floor's status. If the low
+samples make up 50% of the data the floor is deemed "low". If the low samples are less
+than 50% and the high samples make up more than 25% of the total samples the floor is
+deemed "high". Otherwise the floor is deemed "med".'''
     #return ",".join(["low", ["low", "med", "high"][random.randrange(0,3)]] + (["low"]*5))
-
-    floorNum = request.args.get('floor', None)
-    #index corresponds to floor, index 0 should not be used
-    total = [0]*8
-    high = [0]*8
-    med = [0]*8
-    low = [0]*8
-    stat = ['']*8
-    if Data.query.count() == 0:
-        return ",".join(["low"] * 7)
-    else:
-        for a in Hardware.query.all():
-            # Negative sign indicates reverse order (most recent)
-            e = a.isolated_data.query.order_by('-timestamp').first()
-            print("floorstatus: " + str(e.timestamp))
-            #stores the total, high, med, and low values for each floor
-            total[a.floor_num] += e.high + e.med + e.low
-            high[a.floor_num] += e.high
-            med[a.floor_num] += e.med
-            low[a.floor_num] += e.low
     
-    for x in range(1,8):
+    #arrays that will store the information for each floor
+    #index+1 corresponds to the floor where the data was collected
+    total = [0]*7
+    high = [0]*7
+    med = [0]*7
+    low = [0]*7
+    stat = ['']*7
+
+    while (floorNum < 8): 
+        if Data.query.count() == 0:
+            return ",".join(["low"] * 7)
+        else:
+            for a in Sensor.query.filter(floorNum):
+                # Negative sign indicates reverse order (most recent)
+                e = a.data.query.order_by('-timestamp').first()
+                print("floorstatus: " + str(e.timestamp))
+                #stores the total, high, med, and low values for each floor
+                total[a.floor_num - 1] += e.high + e.med + e.low
+                high[a.floor_num - 1] += e.high
+                med[a.floor_num - 1] += e.med
+                low[a.floor_num - 1] += e.low
+        floor += 1
+        
+    for x in range(0,7):
         #if ((e[3] * 100) / total) >= 47:
-        if (low[x] * 100) / total[x] >= 50:
+        if (low[x] * 100) / total[x] >= 50 or total[x] == 0:
             stat[x] = "low"
         else:
             total_no_low = total[x] - low[x]
@@ -92,9 +99,9 @@ def rawdata():
         one_hour_ago = current_time - datetime.timedelta(hours=1)
         
         sensor = Sensor.query.filter(mac_address = address).first_or_404()
-        output = 'Floor: '+ str(sensor.floor_num) + ', Location: ' + sensor.location + ', Mac Address: ' + sensor.mac_address + '\n'
+        output = 'Floor: '+ str(sensor.floor_num) + ', Location: ' + sensor.location + '\n'
         output += 'Date,High,Med,Low\n'
-        for e in sensor.data.query.filter(sensor.data.timestamp >= one_hour_ago).all():
+        for e in Sensor.data.query.filter(sensor.data.timestamp >= one_hour_ago).all():
             new_ts = e.timestamp.replace(tzinfo=timezone('UTC')).astimezone(timezone('US/Eastern'))
             print('Object: ' + str(e))
             print(new_ts.strftime("%Y/%m/%d %H:%M:%S"))
@@ -156,6 +163,10 @@ def rawdataall():
 
 @app.route('/datasubmit')
 def dataSubmit():
+'''Requests the data and Mac Address as parameters and submits the given information
+into the database. If an entry has already been made with the Mac Address the data is
+placed into that object's database. Otherwise a new Sensor object is created to store
+future submissions.'''
     d = request.args.get('d', None)
     #stores the macAddress as a string 
     id_address = request.args.get('id', None)
