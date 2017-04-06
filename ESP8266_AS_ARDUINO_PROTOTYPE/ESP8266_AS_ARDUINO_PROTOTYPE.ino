@@ -35,6 +35,9 @@ void collectSum() {
   long highTotalCount = 0;
   long midTotalCount = 0;
   
+  byte mac[6];
+  WiFi.macAddress(mac);
+
   stimer_t *sumtimer;
 
   Serial.println("Collecting data...");
@@ -72,7 +75,7 @@ void collectSum() {
   Serial.print("Mode after adjustment, if any: ");
   Serial.println(currentMode);
 
-  submitSum(sumtimer->start, totalSampleCount, highTotalCount, midTotalCount);
+  submitSum(sumtimer->start, totalSampleCount, highTotalCount, midTotalCount, mac);
 }
 
 // Active mode

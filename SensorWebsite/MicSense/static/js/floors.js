@@ -7,69 +7,84 @@ function updateFloorStatus() {
 
     $.get("floorstatus", function(statusString) {
         floorStatuses = statusString.split(",");
-        if (floorStatuses.length >= 2) {
-            newFloorStatus = floorStatuses[1];
-
-            if (newFloorStatus != curFloorStatus) {
-                $('#floor2').removeClass("waves-green");
-                $('#floor2').removeClass("waves-yellow");
-                $('#floor2').removeClass("waves-red");
-
-                if (newFloorStatus == "low") {
-                    curClasses = $('#floor2').prop('class');
-
-                    $('#floor2').addClass("waves-green");
-                    Waves.ripple('#floor2');
-
-                    if (curClasses.search("high") != -1) {
-                        $('#floor2').switchClass("high", "low", 1000, "easeInOutQuad");
-                    } else {
-                        $('#floor2').switchClass("med", "low", 1000, "easeInOutQuad");
-                    }
-
-                    $('#floor2 div:nth-child(2)').html('<i class="fa fa-volume-off"></i>');
-                }
-
-                if (newFloorStatus == "med") {
-                    curClasses = $('#floor2').prop('class');
-
-                    $('#floor2').addClass("waves-yellow");
-                    Waves.ripple('#floor2');
-
-                    if (curClasses.search("high") != -1) {
-                        $('#floor2').switchClass("high", "med", 1000, "easeInOutQuad");
-                    } else {
-                        $('#floor2').switchClass("low", "med", 1000, "easeInOutQuad");
-                    }
-
-                    $('#floor2 div:nth-child(2)').html('<i class="fa fa-volume-down"></i>');
-                }
-
-                if (newFloorStatus == "high") {
-                    curClasses = $('#floor2').prop('class');
-
-                    $('#floor2').addClass("waves-red");
-                    Waves.ripple('#floor2');
-
-                    if (curClasses.search("med") != -1) {
-                        $('#floor2').switchClass("med", "high", 1000, "easeInOutQuad");
-                    } else {
-                        $('#floor2').switchClass("low", "high", 1000, "easeInOutQuad");
-                    }
-
-                    $('#floor2 div:nth-child(2)').html('<i class="fa fa-volume-up"></i>');
-                }
-
-                curFloorStatus = newFloorStatus;
+    
+        for (int i = 0; i < floorStatuses.length; i++) {
+            if (floorStatuses[i] != curFloorStatus[i]) {
+                volChange[i] += 1;
             }
         }
+        
+        for (int i = 0; i < volChange.length; i++) {
+            if (volChange[i] == 1) {
+                newFloorStatus = floorStatuses[i];
+            
+                $(floorArr[i]).removeClass("waves-green");
+                $(floorArr[i]).removeClass("waves-yellow");
+                $(floorArr[i]).removeClass("waves-red");
+                
+                switch (newFloorStatus) {
+                    case 'low':
+                        curClasses = $(floorArr[i]).prop('class');
+
+                        $(floorArr[i]).addClass("waves-green");
+                        Waves.ripple(floorArr[i]);
+
+                        if (curClasses.search("high") != -1) {
+                            $(floorArr[i]).switchClass("high", "low", 1000, "easeInOutQuad");
+                        } else {
+                            $(floorArr[i]).switchClass("med", "low", 1000, "easeInOutQuad");
+                        }
+
+                        $(floorArr[i] + ' div:nth-child(2)').html('<i class="fa fa-volume-off"></i>');
+                        break;
+
+                    case 'med':
+                        curClasses = $(floorArr[i]).prop('class');
+
+                        $(floorArr[i]).addClass("waves-yellow");
+                        Waves.ripple(floorArr[i]);
+
+                        if (curClasses.search("high") != -1) {
+                            $(floorArr[i]).switchClass("high", "med", 1000, "easeInOutQuad");
+                        } else {
+                            $(floorArr[i]).switchClass("low", "med", 1000, "easeInOutQuad");
+                        }
+
+                        $(floorArr[i] + ' div:nth-child(2)').html('<i class="fa fa-volume-down"></i>');
+                        break;
+
+                    case 'high':
+                        curClasses = $(floorArr[i]).prop('class');
+
+                        $(floorArr[i]).addClass("waves-red");
+                        Waves.ripple(floorArr[i]);
+
+                        if (curClasses.search("med") != -1) {
+                            $(floorArr[i]).switchClass("med", "high", 1000, "easeInOutQuad");
+                        } else {
+                            $(floorArr[i]).switchClass("low", "high", 1000, "easeInOutQuad");
+                        }
+
+                        $(floorArr[i] + ' div:nth-child(2)').html('<i class="fa fa-volume-up"></i>');
+                    
+                }
+                curFloorStatus[i] = newFloorStatus;
+            }
+        }
+    
     });
 }
 
 function autoRefreshFloorStatus() {
     updateFloorStatus();
 }
-
-Waves.attach('#floor2', ['waves-block']);
+//takes place of #floor2 variable in code (floor generalized to sensor)
+var floorArr = ['#floor1', '#floor2', '#floor3', '#floor4', '#floor5', '#floor6', '#floor7'];
+//create arr for current status for each sensor, all initialized to low
+var curFloorStatus = ['low', 'low', 'low', 'low', 'low', 'low', 'low'];
+var volChange = [0,0,0,0,0,0,0]; //0 if floor stayed the same, 1 if change
+for(int i = 0; i < floorArr.length; i++) {
+    Waves.attach(floorArr[i], ['waves-block']);
+}
 
 setInterval(autoRefreshFloorStatus, 5000);

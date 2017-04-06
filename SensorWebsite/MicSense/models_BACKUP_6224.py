@@ -3,7 +3,12 @@ from flask.ext.sqlalchemy import SQLAlchemy
 from MicSense.db import db, initDatabase
 
 class Data(db.Model):
+<<<<<<< HEAD
+    id = db.Column(db.String(100), primary_key=True)
+=======
+
     id = db.Column(db.Integer(), primary_key=True)
+>>>>>>> refs/remotes/origin/bh-add-multinode
     timestamp = db.Column(db.DateTime())
     high = db.Column(db.Integer())
     med = db.Column(db.Integer())

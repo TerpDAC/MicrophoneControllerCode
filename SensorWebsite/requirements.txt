@@ -1,0 +1,13 @@
+-f /usr/share/pip-wheels
+click==6.6
+Flask==0.11.1
+Flask-SQLAlchemy==2.1
+itsdangerous==0.24
+Jinja2==2.8
+MarkupSafe==0.23
+PyMySQL==0.7.9
+pytz==2016.10
+six==1.10.0
+SQLAlchemy==1.1.4
+SQLAlchemy-Utils==0.32.11
+Werkzeug==0.11.11
