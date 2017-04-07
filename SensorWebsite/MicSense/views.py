@@ -22,10 +22,10 @@ def floor():
 
 @app.route('/floorstatus')
 def floorstatus():
-'''Retrieves current data for every floor and evaluates the floor's status. If the low
-samples make up 50% of the data the floor is deemed "low". If the low samples are less
-than 50% and the high samples make up more than 25% of the total samples the floor is
-deemed "high". Otherwise the floor is deemed "med".'''
+    '''Retrieves current data for every floor and evaluates the floor's status. If the low
+    samples make up 50% of the data the floor is deemed "low". If the low samples are less
+    than 50% and the high samples make up more than 25% of the total samples the floor is
+    deemed "high". Otherwise the floor is deemed "med".'''
     #return ",".join(["low", ["low", "med", "high"][random.randrange(0,3)]] + (["low"]*5))
     
     #arrays that will store the information for each floor
@@ -163,10 +163,10 @@ def rawdataall():
 
 @app.route('/datasubmit')
 def dataSubmit():
-'''Requests the data and Mac Address as parameters and submits the given information
-into the database. If an entry has already been made with the Mac Address the data is
-placed into that object's database. Otherwise a new Sensor object is created to store
-future submissions.'''
+    '''Requests the data and Mac Address as parameters and submits the given information
+    into the database. If an entry has already been made with the Mac Address the data is
+    placed into that object's database. Otherwise a new Sensor object is created to store
+    future submissions.'''
     d = request.args.get('d', None)
     #stores the macAddress as a string 
     id_address = request.args.get('id', None)

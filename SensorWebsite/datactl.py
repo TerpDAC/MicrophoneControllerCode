@@ -47,9 +47,30 @@ def deleteAllData():
         print("==========================")
 
         if confirm(): break
+        else: return
 
     Data.query.delete()
     db.session.commit()
+
+def purgeEntireDB():
+    while 1:
+        print("***********************************************************")
+        print("WARNING: You are about to delete everything, including data")
+        print("and structure! This process is irreversible, and should")
+        print("only be used for development purposes only, and only after")
+        print("any important data is saved!")
+        print("***********************************************************")
+        print("Confirm clearing all data!")
+        print("==========================")
+
+        if confirm(): break
+        else: return
+
+    db.drop_all()
+    db.session.commit()
+    
+    print("Database has been destroyed. Exiting now.")
+    sys.exit(0)
 
 def listData():
     data = Data.query.all()
@@ -73,6 +94,7 @@ def main():
                         [listData,           "List Data"],
                         [listLatestData,     "List Latest Data"],
                         [deleteAllData,      "Delete All Data"],
+                        [purgeEntireDB,      "Purge Entire DB"],
                         [sys.exit,           "Exit"],
                     ]
         menu_pick = select("Command", menu_opts)
