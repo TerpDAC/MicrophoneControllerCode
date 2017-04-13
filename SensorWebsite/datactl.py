@@ -2,6 +2,7 @@ from MicSense.db import db, initDatabase
 from MicSense.models import Data
 
 import sys
+import time
 
 def confirm():
     while 1:
@@ -47,9 +48,46 @@ def deleteAllData():
         print("==========================")
 
         if confirm(): break
+        else: return
 
     Data.query.delete()
     db.session.commit()
+
+def purgeEntireDB():
+    while 1:
+        print("***********************************************************")
+        print("WARNING: You are about to delete everything, including data")
+        print("and structure! This process is irreversible, and should")
+        print("only be used for development purposes only, and only after")
+        print("any important data is saved!")
+        print("***********************************************************")
+        print("Confirm destorying database!")
+        print("============================")
+
+        if confirm(): break
+        else: return
+
+    while 1:
+        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        print("WARNING: You are about to delete EVERYTHING, including data")
+        print("and structure! This process is irreversible, and should")
+        print("only be used for development purposes only, and only after")
+        print("any important data is saved!")
+        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        print("Are you absolutely, positively sure that you want to")
+        print("destroy the entire database?")
+        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        print("Please read the above, and then answer below. (5s)")
+        time.sleep(5)
+
+        if confirm(): break
+        else: return
+
+    db.drop_all()
+    db.session.commit()
+    
+    print("Database has been destroyed. Exiting now.")
+    sys.exit(0)
 
 def listData():
     data = Data.query.all()
@@ -73,6 +111,7 @@ def main():
                         [listData,           "List Data"],
                         [listLatestData,     "List Latest Data"],
                         [deleteAllData,      "Delete All Data"],
+                        [purgeEntireDB,      "Purge Entire DB"],
                         [sys.exit,           "Exit"],
                     ]
         menu_pick = select("Command", menu_opts)
