@@ -2,6 +2,7 @@ from MicSense.db import db, initDatabase
 from MicSense.models import Data
 
 import sys
+import time
 
 def confirm():
     while 1:
@@ -60,8 +61,24 @@ def purgeEntireDB():
         print("only be used for development purposes only, and only after")
         print("any important data is saved!")
         print("***********************************************************")
-        print("Confirm clearing all data!")
-        print("==========================")
+        print("Confirm destorying database!")
+        print("============================")
+
+        if confirm(): break
+        else: return
+
+    while 1:
+        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        print("WARNING: You are about to delete EVERYTHING, including data")
+        print("and structure! This process is irreversible, and should")
+        print("only be used for development purposes only, and only after")
+        print("any important data is saved!")
+        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        print("Are you absolutely, positively sure that you want to")
+        print("destroy the entire database?")
+        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        print("Please read the above, and then answer below. (5s)")
+        time.sleep(5)
 
         if confirm(): break
         else: return

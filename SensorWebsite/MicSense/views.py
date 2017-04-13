@@ -1,7 +1,7 @@
 from flask import Flask, request, render_template
 
 from MicSense import app
-from MicSense.models import Data
+from MicSense.models import Data, Sensor
 from MicSense.db import db
 
 import datetime
@@ -40,7 +40,7 @@ def floorstatus():
         if Data.query.count() == 0:
             return ",".join(["low"] * 7)
         else:
-            for a in Sensor.query.filter(floorNum):
+            for a in Sensor.query.filter_by(floor_num = floorNum):
                 # Negative sign indicates reverse order (most recent)
                 e = a.data.query.order_by('-timestamp').first()
                 print("floorstatus: " + str(e.timestamp))
@@ -98,10 +98,10 @@ def rawdata():
         current_time = datetime.datetime.utcnow()
         one_hour_ago = current_time - datetime.timedelta(hours=1)
         
-        sensor = Sensor.query.filter(mac_address = address).first_or_404()
+        sensor = Sensor.query.filter_by(mac_address = address).first_or_404()
         output = 'Floor: '+ str(sensor.floor_num) + ', Location: ' + sensor.location + '\n'
         output += 'Date,High,Med,Low\n'
-        for e in Sensor.data.query.filter(sensor.data.timestamp >= one_hour_ago).all():
+        for e in Sensor.data.query.filter_by(sensor.data.timestamp >= one_hour_ago).all():
             new_ts = e.timestamp.replace(tzinfo=timezone('UTC')).astimezone(timezone('US/Eastern'))
             print('Object: ' + str(e))
             print(new_ts.strftime("%Y/%m/%d %H:%M:%S"))
@@ -114,9 +114,9 @@ def rawdata():
     else:
         output = ''
         for i in range(1,8):
-            for sensor in Sensor.query.filter(floor_num=i).all():
+            for sensor in Sensor.query.filter_by(floor_num=i).all():
                 output += 'Floor: ' + str(i) + ', Location: ' + sensor.location + 'Mac Address: ' + sensor.mac_address + '\n'
-                for e in sensor.data.query.filter(sensor.data.timestamp >= one_hour_ago).all():
+                for e in sensor.data.query.filter_by(sensor.data.timestamp >= one_hour_ago).all():
                     new_ts = e.timestamp.replace(tzinfo=timezone('UTC')).astimezone(timezone('US/Eastern'))
                     print('Object: ' + str(e))
                     print(new_ts.strftime("%Y/%m/%d %H:%M:%S"))
@@ -182,7 +182,7 @@ def dataSubmit():
     print(data)
 
     #retrieves the sensor trying to submit data
-    sensor = Sensor.query.filter(mac_address = id_address)
+    sensor = Sensor.query.filter_by(mac_address = id_address)
 
     timestamp = int(data[0])
     high = int(data[1])
