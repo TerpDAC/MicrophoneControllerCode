@@ -9,6 +9,7 @@ const char* host = "www.example.com";
 int wifiEnabled = 0;
 byte mac[6];                     // the MAC address of your Wifi shield
 
+/* Ask the ESP8266 to deep sleep for the specified amount of seconds. */
 void espDeepSleep(uint32_t sec) {
   Serial.print("Triggering deep sleep for ");
   Serial.print(sec);
@@ -17,6 +18,7 @@ void espDeepSleep(uint32_t sec) {
   ESP.deepSleep(sec * 1000000);
 }
 
+/* Ask the ESP8266 to sleep for the specified amount of seconds. */
 void espSleep(uint32_t sec) {
   Serial.print("Triggering sleep for ");
   Serial.print(sec);
@@ -25,6 +27,7 @@ void espSleep(uint32_t sec) {
   delay(sec * 1000);
 }
 
+/* Connect to WiFi! */
 void connectToWiFi() {
   Serial.println();
   Serial.println();
@@ -81,6 +84,7 @@ void connectToWiFi() {
   wifiEnabled = 1;
 }
 
+/* Test WiFi by grabbing a webpage. */
 void wifiTest() {
   Serial.print("performing wifi test in 5s...");
   delay(5000);
@@ -119,6 +123,7 @@ void wifiTest() {
   Serial.println("closing connection");
 }
 
+/* Disable WiFi. */
 void wifiDisable() {
   Serial.println("Disconnecting from WiFi and disabling...");
   WiFi.disconnect();
@@ -129,29 +134,38 @@ void wifiDisable() {
   wifiEnabled = 0;
 }
 
+/* Enable WiFi. */
 void wifiEnable() {
   Serial.println("Enabling WiFi...");
   WiFi.forceSleepWake();
   delay(100);
   WiFi.mode(WIFI_STA);
   delay(100);
+  /* Note that wifiEnabled = 1 is set within connectToWiFi(). */
   connectToWiFi();
 }
 
+/* Return if WiFi is enabled or not. */
 int getWiFiEnabled() {
   return wifiEnabled;
 }
 
+/* Submit the data to the MicSense server, given the time number,
+ * number of total samples taken, number of high samples detected, and
+ * number of mid samples detected.
+ */
 void submitSum(uint32_t curTime, long totalSampleCount, long highTotalCount, long midTotalCount) {
   Serial.println("Submit code goes here!");
 
   // Use WiFiClient class to create TCP connections
   WiFiClient client;
   
-  WiFi.macAddress(mac);
+  // WiFi MAC address should be populated at this point!
   
   if (client.connect(server, 80)) {
     Serial.println("connected to server");
+#ifdef ENABLE_DEBUG_SERIAL
+    // Print out the request we're going to send!
     Serial.print("GET /datasubmit?id=");
     Serial.print(mac[5],HEX);
     Serial.print(mac[4],HEX);
@@ -172,6 +186,7 @@ void submitSum(uint32_t curTime, long totalSampleCount, long highTotalCount, lon
     Serial.println(server);
     Serial.println("Connection: close");
     Serial.println();
+#endif
     
     // Make a HTTP request:
     client.print("GET /datasubmit?id=");
@@ -212,13 +227,17 @@ void submitSum(uint32_t curTime, long totalSampleCount, long highTotalCount, lon
           int mid_thresh_tmp = -1;
           int high_thresh_tmp = -1;
           
+          // Did we find our colon?
           if (mid_thresh_str_end != std::string::npos) {
+            // Split the strings up!
             mid_thresh_str = line.substr(9, mid_thresh_str_end -1 - 9 + 1);
             high_thresh_str = line.substr(mid_thresh_str_end + 1, line.length() - (mid_thresh_str_end + 1) + 1);
             try {
               mid_thresh_tmp = std::stoi(mid_thresh_str);
               high_thresh_tmp = std::stoi(high_thresh_str);
             } catch (const std::invalid_argument& ia) {
+              // std::stoi will throw an exception if it can't convert,
+              // so handle it here.
               Serial.println("Invalid argument: " + ia.what() + '\n');
             }
             if (mid_thresh_tmp != -1) mid_thresh = mid_thresh_tmp;
@@ -243,6 +262,8 @@ void getCalibration() {
   
   if (client.connect(server, 80)) {
     Serial.println("connected to server");
+#ifdef ENABLE_DEBUG_SERIAL
+    // Print out the request we're going to send!
     Serial.print("GET /calibration?id=");
     Serial.print(mac[5],HEX);
     Serial.print(mac[4],HEX);
@@ -255,6 +276,7 @@ void getCalibration() {
     Serial.println(server);
     Serial.println("Connection: close");
     Serial.println();
+#endif
     
     // Make a HTTP request:
     client.print("GET /datasubmit?id=");
@@ -287,13 +309,17 @@ void getCalibration() {
           int mid_thresh_tmp = -1;
           int high_thresh_tmp = -1;
           
+          // Did we find our colon?
           if (mid_thresh_str_end != std::string::npos) {
+            // Split the strings up!
             mid_thresh_str = line.substr(9, mid_thresh_str_end -1 - 9 + 1);
             high_thresh_str = line.substr(mid_thresh_str_end + 1, line.length() - (mid_thresh_str_end + 1) + 1);
             try {
               mid_thresh_tmp = std::stoi(mid_thresh_str);
               high_thresh_tmp = std::stoi(high_thresh_str);
             } catch (const std::invalid_argument& ia) {
+              // std::stoi will throw an exception if it can't convert,
+              // so handle it here.
               Serial.println("Invalid argument: " + ia.what() + '\n');
             }
             if (mid_thresh_tmp != -1) mid_thresh = mid_thresh_tmp;

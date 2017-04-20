@@ -65,17 +65,25 @@ void collectSum() {
 }
 
 void setup() {
+  // Setup USB serial!
   Serial.begin(115200);
+  
   Serial.println("ESP8266 now in setup()!");
   Serial.println("Reset/startup reason:");
   Serial.println(ESP.getResetReason());
+  
   connectToWiFi();
+  
+  // Start the timing mechanism (+NTP)
   initTime();
+  
   Serial.println("Blocking until NTP time is fetched...");
   blockUntilTimeFetched();
   Serial.println("NTP time is fetched!");
+  
   timerCreate(&mtimer);
-  Serial.println("Attempting to calibrate from the server...");
+  
+  Serial.println("Attempting to calibrate sensors from the server...");
   getCalibration();
   Serial.println("Setup complete!");
 }
