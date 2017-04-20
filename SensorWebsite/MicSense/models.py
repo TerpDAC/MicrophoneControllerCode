@@ -22,5 +22,7 @@ class Sensor(db.Model):
     mac_address = db.Column(db.String(12), unique=True)
     #initializes a one to many relationship with data
     data = db.relationship('Data', backref='sensor', lazy='dynamic')
+    mid_thresh = db.Column(db.Integer())
+    high_thresh = db.Column(db.Integer())
     
 initDatabase()

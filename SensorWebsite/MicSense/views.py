@@ -7,6 +7,9 @@ from MicSense.db import db
 import datetime
 from pytz import timezone
 
+DEFAULT_MID_THRESH = 100
+DEFAULT_HIGH_THRESH = 200
+
 @app.route('/<path:path>')
 def static_proxy(path):
     # send_static_file will guess the correct MIME type
@@ -194,7 +197,10 @@ def dataSubmit():
 
     new_data = Data(timestamp = datetime.datetime.fromtimestamp(timestamp).replace(tzinfo=timezone('UTC')), high = high, med = med, low = low)
     if not sensor:
-        sensor = Sensor(floor_num = 2, location = 'Near the stairs', mac_address = id_address)
+        sensor = Sensor(floor_num = 2, location = 'Near the stairs',
+            mac_address = id_address,
+            mid_thresh = DEFAULT_MID_THRESH,
+            high_thresh = DEFAULT_HIGH_THRESH)
         db.session.add(sensor)
     
     sensor.data.append(new_data)
@@ -202,4 +208,30 @@ def dataSubmit():
     #db.session.add(sensor) do I need to add every time I change something?
     db.session.commit()
 
-    return "OK"
+    return "SenseOK:%i:%i" % (sensor.mid_thresh, sensor.high_thresh)
+
+@app.route('/calibrate')
+def calibrate():
+    d = request.args.get('d', None)
+    #stores the macAddress as a string 
+    id_address = request.args.get('id', None)
+
+    if not d or not id_address:
+        return "ERROR"
+
+    data = d.split(",")
+    #id_address = id_address.replace(":", "")
+
+    #retrieves the sensor trying to submit data
+    sensor = Sensor.query.filter_by(mac_address = id_address)
+
+    if not sensor:
+        sensor = Sensor(floor_num = 2, location = 'Near the stairs',
+            mac_address = id_address,
+            mid_thresh = DEFAULT_MID_THRESH,
+            high_thresh = DEFAULT_HIGH_THRESH)
+        db.session.add(sensor)
+    
+    db.session.commit()
+
+    return "SenseOK:%i:%i" % (sensor.mid_thresh, sensor.high_thresh)

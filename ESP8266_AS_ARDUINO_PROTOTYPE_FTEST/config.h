@@ -7,8 +7,11 @@
 #define DC_BIAS 512
 
 /* Define thresholds for medium/high modes */
-#define MID_THRESH 57
-#define HIGH_THRESH 64
+//#define MID_THRESH 57
+//#define HIGH_THRESH 64
+
+extern int mid_thresh;
+extern int high_thresh;
 
 /* Define time to gather as many samples as possible */
 #define COLLECT_SEC 10

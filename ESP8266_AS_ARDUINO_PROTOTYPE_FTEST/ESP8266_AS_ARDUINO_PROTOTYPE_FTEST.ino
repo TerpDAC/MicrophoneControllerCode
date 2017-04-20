@@ -7,6 +7,10 @@ stimer_t *mtimer;
 
 int micValue = 0;
 
+// Thresholds
+int mid_thresh = 100;
+int high_thresh = 200;
+
 // Collect sound for predefined amount of time, and classify the sounds.
 void collectSum() {
   // Initialize counts.
@@ -71,6 +75,9 @@ void setup() {
   blockUntilTimeFetched();
   Serial.println("NTP time is fetched!");
   timerCreate(&mtimer);
+  Serial.println("Attempting to calibrate from the server...");
+  getCalibration();
+  Serial.println("Setup complete!");
 }
 
 void loop() {

@@ -16,8 +16,9 @@ IPAddress timeServer(132, 163, 4, 101); // time-a.timefreq.bldrdoc.gov
 // IPAddress timeServer(132, 163, 4, 102); // time-b.timefreq.bldrdoc.gov
 // IPAddress timeServer(132, 163, 4, 103); // time-c.timefreq.bldrdoc.gov
 
-const int timeZone = -5;  // Eastern Standard Time (USA)
+//const int timeZone = -5;  // Eastern Standard Time (USA)
 //const int timeZone = -4;  // Eastern Daylight Time (USA)
+const int timeZone = 0;  // GMT/UTC
 
 WiFiUDP Udp;
 unsigned int localPort = 8888;  // local port to listen for UDP packets
