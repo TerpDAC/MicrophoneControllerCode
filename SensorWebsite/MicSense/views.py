@@ -35,12 +35,13 @@ def floorstatus():
     med = [0]*7
     low = [0]*7
     stat = ['']*7
+   
 
-    while (floorNum < 8): 
+    while (floor < 8): 
         if Data.query.count() == 0:
             return ",".join(["low"] * 7)
         else:
-            for a in Sensor.query.filter_by(floor_num = floorNum):
+            for a in Sensor.query.filter_by(floor_num = floor):
                 # Negative sign indicates reverse order (most recent)
                 e = a.data.query.order_by('-timestamp').first()
                 print("floorstatus: " + str(e.timestamp))
@@ -64,7 +65,7 @@ def floorstatus():
     if not floorNum or floorNum > 7 or floorNum < 1:
         return ",".join(stat)
     else:
-        return stat(floorNum)
+        return stat[floorNum]
 
 @app.route('/floorstatus-dbg')
 def floorstatusdbg():
@@ -93,15 +94,13 @@ def floorstatusdbg():
 def rawdata():
 
     address = request.args.get('id', None)
-
+    current_time = datetime.datetime.utcnow()
+    one_hour_ago = current_time - datetime.timedelta(hours=1)
     if address:
-        current_time = datetime.datetime.utcnow()
-        one_hour_ago = current_time - datetime.timedelta(hours=1)
-        
         sensor = Sensor.query.filter_by(mac_address = address).first_or_404()
         output = 'Floor: '+ str(sensor.floor_num) + ', Location: ' + sensor.location + '\n'
         output += 'Date,High,Med,Low\n'
-        for e in Sensor.data.query.filter_by(sensor.data.timestamp >= one_hour_ago).all():
+        for e in Sensor.data.query.filter(Data.timestamp >= one_hour_ago).all():
             new_ts = e.timestamp.replace(tzinfo=timezone('UTC')).astimezone(timezone('US/Eastern'))
             print('Object: ' + str(e))
             print(new_ts.strftime("%Y/%m/%d %H:%M:%S"))
@@ -114,13 +113,16 @@ def rawdata():
     else:
         output = ''
         for i in range(1,8):
-            for sensor in Sensor.query.filter_by(floor_num=i).all():
-                output += 'Floor: ' + str(i) + ', Location: ' + sensor.location + 'Mac Address: ' + sensor.mac_address + '\n'
-                for e in sensor.data.query.filter_by(sensor.data.timestamp >= one_hour_ago).all():
+            for found_sensor in Sensor.query.filter_by(floor_num=i).all():
+                output += 'Floor, Location, Mac Address, Time, High, Med, Low\n'
+                for e in found_sensor.data.filter(Data.timestamp >= one_hour_ago).all():
                     new_ts = e.timestamp.replace(tzinfo=timezone('UTC')).astimezone(timezone('US/Eastern'))
                     print('Object: ' + str(e))
                     print(new_ts.strftime("%Y/%m/%d %H:%M:%S"))
                     buf = []
+                    buf.append(str(i))
+                    buf.append(found_sensor.location)
+                    buf.append(found_sensor.mac_address)
                     buf.append(new_ts.strftime("%Y/%m/%d %H:%M:%S"))
                     buf.append(str(e.high))
                     buf.append(str(e.med))
@@ -160,13 +162,17 @@ def rawdataall():
             output += ",".join(buf) + "\n"
 
     return output
+    
 
 @app.route('/datasubmit')
 def dataSubmit():
     '''Requests the data and Mac Address as parameters and submits the given information
-    into the database. If an entry has already been made with the Mac Address the data is
-    placed into that object's database. Otherwise a new Sensor object is created to store
+    into the database.
+    If an entry has already been made with the Mac Address the data is
+    placed into that object's database. 
+    Otherwise a new Sensor object is created to store
     future submissions.'''
+    
     d = request.args.get('d', None)
     #stores the macAddress as a string 
     id_address = request.args.get('id', None)
