@@ -5,6 +5,7 @@ from MicSense.models import Data, Sensor
 from MicSense.db import db
 
 import datetime
+
 from pytz import timezone
 
 @app.route('/<path:path>')
@@ -37,35 +38,41 @@ def floorstatus():
     stat = ['']*7
    
 
-    while (floor < 8): 
-        if Data.query.count() == 0:
-            return ",".join(["low"] * 7)
-        else:
-            for a in Sensor.query.filter_by(floor_num = floor):
+    for floor in range(0,7):        
+        for a in Sensor.query.filter_by(floor_num = floor+1):
+            if (a.data.count() == 0) :
+                stat[floor] = "low"
+            else:
                 # Negative sign indicates reverse order (most recent)
-                e = a.data.query.order_by('-timestamp').first()
+                e = a.data.order_by('-timestamp').first()
                 print("floorstatus: " + str(e.timestamp))
                 #stores the total, high, med, and low values for each floor
-                total[a.floor_num - 1] += e.high + e.med + e.low
-                high[a.floor_num - 1] += e.high
-                med[a.floor_num - 1] += e.med
-                low[a.floor_num - 1] += e.low
-        floor += 1
+                total[floor] += e.high + e.med + e.low
+                high[floor] += e.high
+                med[floor] += e.med
+                low[floor] += e.low
+                print (floor, ":")
+                print (low[floor])
+                print (med[floor])
+                print (high[floor])
+                print (total[floor])
+
         
     for x in range(0,7):
         #if ((e[3] * 100) / total) >= 47:
-        if (low[x] * 100) / total[x] >= 50 or total[x] == 0:
+        if total[x] == 0 or (low[x] * 100) / total[x] >= 50:
             stat[x] = "low"
+            print(x+1)
         else:
             total_no_low = total[x] - low[x]
             if ((high[x] * 100) / total_no_low) >= 25:
                 stat[x] = "high"
             else:
                 stat[x] = "med"
-    if not floorNum or floorNum > 7 or floorNum < 1:
-        return ",".join(stat)
-    else:
-        return stat[floorNum]
+    #if not floorNum or floorNum > 7 or floorNum < 1:
+    #    return ",".join(stat)
+    #else:
+    return ",".join(stat)
 
 @app.route('/floorstatus-dbg')
 def floorstatusdbg():
@@ -94,27 +101,33 @@ def floorstatusdbg():
 def rawdata():
 
     address = request.args.get('id', None)
-    current_time = datetime.datetime.utcnow()
+    current_time = datetime.datetime.now()
+    print (current_time)
+    #current_time = utc.astimezone(tz.tzlocal())
     one_hour_ago = current_time - datetime.timedelta(hours=1)
+    output = ''
+    
     if address:
         sensor = Sensor.query.filter_by(mac_address = address).first_or_404()
-        output = 'Floor: '+ str(sensor.floor_num) + ', Location: ' + sensor.location + '\n'
-        output += 'Date,High,Med,Low\n'
-        for e in Sensor.data.query.filter(Data.timestamp >= one_hour_ago).all():
+        output += 'Floor,Location,Date,High,Med,Low\n'
+        for e in sensor.data.filter(Data.timestamp >= one_hour_ago).all():
             new_ts = e.timestamp.replace(tzinfo=timezone('UTC')).astimezone(timezone('US/Eastern'))
             print('Object: ' + str(e))
             print(new_ts.strftime("%Y/%m/%d %H:%M:%S"))
             buf = []
+            buf.append(str(sensor.floor_num))
+            
+            buf.append(sensor.location)
             buf.append(new_ts.strftime("%Y/%m/%d %H:%M:%S"))
             buf.append(str(e.high))
             buf.append(str(e.med))
             buf.append(str(e.low))
             output += ','.join(buf) + '\n'
     else:
-        output = ''
+        output += 'Floor, Location, Mac Address, Time, High, Med, Low\n'
         for i in range(1,8):
             for found_sensor in Sensor.query.filter_by(floor_num=i).all():
-                output += 'Floor, Location, Mac Address, Time, High, Med, Low\n'
+                
                 for e in found_sensor.data.filter(Data.timestamp >= one_hour_ago).all():
                     new_ts = e.timestamp.replace(tzinfo=timezone('UTC')).astimezone(timezone('US/Eastern'))
                     print('Object: ' + str(e))
