@@ -7,6 +7,10 @@ stimer_t *mtimer;
 
 int micValue = 0;
 
+// Thresholds
+int mid_thresh = 100;
+int high_thresh = 200;
+
 // Collect sound for predefined amount of time, and classify the sounds.
 void collectSum() {
   // Initialize counts.
@@ -61,16 +65,27 @@ void collectSum() {
 }
 
 void setup() {
+  // Setup USB serial!
   Serial.begin(115200);
+  
   Serial.println("ESP8266 now in setup()!");
   Serial.println("Reset/startup reason:");
   Serial.println(ESP.getResetReason());
+  
   connectToWiFi();
+  
+  // Start the timing mechanism (+NTP)
   initTime();
+  
   Serial.println("Blocking until NTP time is fetched...");
   blockUntilTimeFetched();
   Serial.println("NTP time is fetched!");
+  
   timerCreate(&mtimer);
+  
+  Serial.println("Attempting to calibrate sensors from the server...");
+  getCalibration();
+  Serial.println("Setup complete!");
 }
 
 void loop() {

@@ -16,13 +16,16 @@ IPAddress timeServer(132, 163, 4, 101); // time-a.timefreq.bldrdoc.gov
 // IPAddress timeServer(132, 163, 4, 102); // time-b.timefreq.bldrdoc.gov
 // IPAddress timeServer(132, 163, 4, 103); // time-c.timefreq.bldrdoc.gov
 
-const int timeZone = -5;  // Eastern Standard Time (USA)
+//const int timeZone = -5;  // Eastern Standard Time (USA)
 //const int timeZone = -4;  // Eastern Daylight Time (USA)
+const int timeZone = 0;  // GMT/UTC
 
 WiFiUDP Udp;
 unsigned int localPort = 8888;  // local port to listen for UDP packets
 
-/* Enable WiFi if necessary, then fetch time. */
+/* Enable WiFi if necessary, then fetch time.
+ * This function is used for the time handler and is called at an interval.
+ */
 time_t getNtpTimeWiFiKick() {
   if (!getWiFiEnabled()) {
     wifiEnable();
@@ -30,6 +33,7 @@ time_t getNtpTimeWiFiKick() {
   return getNtpTime();
 }
 
+/* Initialize the time keeper. */
 void initTime() 
 { 
   Serial.println("Starting UDP");
@@ -38,11 +42,13 @@ void initTime()
   Serial.println(Udp.localPort());
   Serial.println("waiting for sync");
   setSyncProvider(getNtpTimeWiFiKick);
+  // Sync the time every 10 seconds!
   setSyncInterval(10);
 }
 
 time_t prevDisplay = 0; // when the digital clock was displayed
 
+/* Block execution until the NTP time has been fetched. */
 void blockUntilTimeFetched() {
   while (timeStatus() == timeNotSet) {
     Serial.println("Waiting...");
@@ -50,6 +56,7 @@ void blockUntilTimeFetched() {
   }
 }
 
+/* Print the time if there's any change. */
 void attemptToPrintTime()
 {  
   if (timeStatus() != timeNotSet) {
@@ -60,6 +67,7 @@ void attemptToPrintTime()
   }
 }
 
+/* Print the current time to serial. */
 void digitalClockDisplay(){
   // digital clock display of the time
   Serial.print(hour());
@@ -74,6 +82,9 @@ void digitalClockDisplay(){
   Serial.println();
 }
 
+/* Create a new timer, given an empty timer argument.
+ * Do NOT call this function multiple times on the same timer variable!
+ */
 void timerCreate(stimer_t **timer) {
   blockUntilTimeFetched();
   stimer_t *new_timer;
@@ -82,25 +93,35 @@ void timerCreate(stimer_t **timer) {
   *timer = new_timer;
 }
 
+/* Reset the specified timer. */
 uint32_t timerReset(stimer_t **timer) {
   uint32_t elapsed = now() - (*timer)->start;
   (*timer)->start = now();
   return elapsed;
 }
 
+/* Get the current elapsed time (in seconds) for the specified timer. */
 uint32_t timerGetCurElapsed(stimer_t **timer) {
   return (now() - ((*timer)->start));
 }
 
+/* Stop the specified timer and return the timer's elapsed time. */
 uint32_t timerStop(stimer_t **timer) {
   (*timer)->stop = now();
   return ((*timer)->stop) - ((*timer)->start);
 }
 
+/* Return the timer's elapsed time for the specified timer.
+ * Note that timer should have been stopped in order for this to
+ * return anything meaningful.
+ */
 uint32_t timerGetFinalElapsed(stimer_t **timer) {
   return ((*timer)->stop) - ((*timer)->start);
 }
 
+/* Print a number formatted to digital clock type.
+ * (e.g. 8 => 08, 10 => 10)
+ */
 void printDigits(int digits){
   // utility for digital clock display: prints preceding colon and leading 0
   Serial.print(":");
@@ -114,6 +135,7 @@ void printDigits(int digits){
 const int NTP_PACKET_SIZE = 48; // NTP time is in the first 48 bytes of message
 byte packetBuffer[NTP_PACKET_SIZE]; //buffer to hold incoming & outgoing packets
 
+/* Return the NTP synchronized time */
 time_t getNtpTime()
 {
   while (Udp.parsePacket() > 0) ; // discard any previously received packets
@@ -138,7 +160,7 @@ time_t getNtpTime()
   return 0; // return 0 if unable to get the time
 }
 
-// send an NTP request to the time server at the given address
+// Send an NTP request to the time server at the given address
 void sendNTPpacket(IPAddress &address)
 {
   // set all bytes in the buffer to 0
