@@ -1,5 +1,3 @@
-var curFloorStatus = "";
-
 function updateFloorStatus() {
     $.get("floorstatus-dbg", function(dbgStatusString) {
         $('#dbgstatus').html(dbgStatusString);
@@ -7,14 +5,14 @@ function updateFloorStatus() {
 
     $.get("floorstatus", function(statusString) {
         floorStatuses = statusString.split(",");
-    
-        for (int i = 0; i < floorStatuses.length; i++) {
+        var i = 0;
+        for (i = 0; i < floorStatuses.length; i++) {
             if (floorStatuses[i] != curFloorStatus[i]) {
-                volChange[i] += 1;
+                volChange[i] = 1;
             }
         }
         
-        for (int i = 0; i < volChange.length; i++) {
+        for (i = 0; i < volChange.length; i++) {
             if (volChange[i] == 1) {
                 newFloorStatus = floorStatuses[i];
             
@@ -69,6 +67,7 @@ function updateFloorStatus() {
                     
                 }
                 curFloorStatus[i] = newFloorStatus;
+                volChange[i] = 0;
             }
         }
     
@@ -83,8 +82,10 @@ var floorArr = ['#floor1', '#floor2', '#floor3', '#floor4', '#floor5', '#floor6'
 //create arr for current status for each sensor, all initialized to low
 var curFloorStatus = ['low', 'low', 'low', 'low', 'low', 'low', 'low'];
 var volChange = [0,0,0,0,0,0,0]; //0 if floor stayed the same, 1 if change
-for(int i = 0; i < floorArr.length; i++) {
+var i = 0;
+for(i = 0; i < floorArr.length; i++) {
     Waves.attach(floorArr[i], ['waves-block']);
 }
 
 setInterval(autoRefreshFloorStatus, 5000);
+autoRefreshFloorStatus();
