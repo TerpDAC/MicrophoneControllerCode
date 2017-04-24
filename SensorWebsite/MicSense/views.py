@@ -204,7 +204,7 @@ def dataSubmit():
     print(data)
 
     #retrieves the sensor trying to submit data
-    sensor = Sensor.query.filter_by(mac_address = id_address)
+    sensor = Sensor.query.filter_by(mac_address = id_address).first()
 
     timestamp = int(data[0])
     high = int(data[1])
@@ -231,18 +231,16 @@ def dataSubmit():
 
 @app.route('/calibrate')
 def calibrate():
-    d = request.args.get('d', None)
     #stores the macAddress as a string 
     id_address = request.args.get('id', None)
 
-    if not d or not id_address:
+    if not id_address:
         return "ERROR"
 
-    data = d.split(",")
     #id_address = id_address.replace(":", "")
 
     #retrieves the sensor trying to submit data
-    sensor = Sensor.query.filter_by(mac_address = id_address)
+    sensor = Sensor.query.filter_by(mac_address = id_address).first()
 
     if not sensor:
         sensor = Sensor(floor_num = 2, location = 'Near the stairs',
