@@ -4,7 +4,7 @@
 /* Microphone settings */
 
 /* Define the DC bias of the measurements */
-#define DC_BIAS 512
+#define DC_BIAS 0
 
 /* Define thresholds for medium/high modes */
 //#define MID_THRESH 57
@@ -25,5 +25,11 @@ extern int high_thresh;
  * make operations much faster because of less output.
  */
 #define ENABLE_DEBUG_SERIAL
+
+/* Enable verbose debugging?
+ * Note that this does not disable all serial messages, but it does
+ * make operations much faster because of less output.
+ */
+//#define ENABLE_DEBUG_SERIAL_VERBOSE
 
 #endif

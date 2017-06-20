@@ -1,7 +1,15 @@
+#include "util.h"
 #include "Time.h"
 #include "TimeHandler.h"
 #include "WiFiConn.h"
 #include "config.h"
+#include "led.h"
+
+// Required for MAC change only
+// When MAC change is removed, remove this as well.
+extern "C" {
+#include "user_interface.h"
+}
 
 stimer_t *mtimer;
 
@@ -10,6 +18,15 @@ int micValue = 0;
 // Thresholds
 int mid_thresh = 100;
 int high_thresh = 200;
+
+/*
+void initVariant() {
+  // 18:fe:34:01:59:ab
+  //uint8_t mac[] = {0x18, 0xfe, 0x34, 0x01, 0x59, 0xab};
+  uint8_t mac[] = {0xab, 0x59, 0x01, 0x34, 0xfe, 0x18};
+  wifi_set_macaddr(STATION_IF, &mac[0]);
+}
+*/
 
 // Collect sound for predefined amount of time, and classify the sounds.
 void collectSum() {
@@ -22,6 +39,10 @@ void collectSum() {
   stimer_t *sumtimer;
 
   Serial.println("Collecting data...");
+  Serial.print(" - Current mid thresh: ");
+  Serial.println(mid_thresh);
+  Serial.print(" - Current high thresh: ");
+  Serial.println(high_thresh);
 
   // Initialize timer and start counting.
   timerCreate(&sumtimer);
@@ -37,9 +58,9 @@ void collectSum() {
     
     // Does the value meet the high threshold?
     // If so, increment the high total.
-    if (micValue >= HIGH_THRESH) {
+    if (micValue >= high_thresh) {
       highTotalCount++;
-    } else if (micValue >= MID_THRESH) {
+    } else if (micValue >= mid_thresh) {
       // Does the value meet the medium threshold?
       // If so, increment the medium total.
       midTotalCount++;
@@ -67,11 +88,21 @@ void collectSum() {
 void setup() {
   // Setup USB serial!
   Serial.begin(115200);
+
+  Serial.setDebugOutput(true);
   
   Serial.println("ESP8266 now in setup()!");
   Serial.println("Reset/startup reason:");
   Serial.println(ESP.getResetReason());
-  
+
+  // Set up LED system
+  //Serial.println("Initializing LED subsystem...");
+  initLED();
+  //setLED(1);
+
+  setRedLED(1);
+
+  // Connect to WiFi
   connectToWiFi();
   
   // Start the timing mechanism (+NTP)
@@ -82,6 +113,9 @@ void setup() {
   Serial.println("NTP time is fetched!");
   
   timerCreate(&mtimer);
+
+  // Set LED off
+  setRedLED(0);
   
   Serial.println("Attempting to calibrate sensors from the server...");
   getCalibration();

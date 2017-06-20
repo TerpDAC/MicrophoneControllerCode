@@ -222,3 +222,6 @@ pip-log.txt
 
 # Configuration
 instance/config.py
+
+# Doxygen documentation
+docs/

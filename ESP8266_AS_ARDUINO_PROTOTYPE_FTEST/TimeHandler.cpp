@@ -10,6 +10,7 @@
 #include <WiFiUdp.h>
 #include "TimeHandler.h"
 #include "WiFiConn.h"
+#include "led.h"
 
 // NTP Servers:
 IPAddress timeServer(132, 163, 4, 101); // time-a.timefreq.bldrdoc.gov
@@ -50,9 +51,15 @@ time_t prevDisplay = 0; // when the digital clock was displayed
 
 /* Block execution until the NTP time has been fetched. */
 void blockUntilTimeFetched() {
+  int count = 0;
+  int ledEnabled = 0;
   while (timeStatus() == timeNotSet) {
     Serial.println("Waiting...");
     delay(1000);
+    count++;
+    if (count == 5) getNtpTimeWiFiKick();
+    if (ledEnabled) ledEnabled = 0; else ledEnabled = 1;
+    setRedLED(ledEnabled);
   }
 }
 
