@@ -90,14 +90,39 @@ void digitalClockDisplay(){
 }
 
 /* Create a new timer, given an empty timer argument.
+ * 
  * Do NOT call this function multiple times on the same timer variable!
  */
 void timerCreate(stimer_t **timer) {
   blockUntilTimeFetched();
   stimer_t *new_timer;
   new_timer = (stimer_t *) malloc(sizeof(timer_t));
+
+  // Sanity check
+  if (new_timer == NULL) {
+    // Uh oh, this can't be good...
+    Serial.println("[timerCreate] Unable to create new timer - malloc failed");
+    return;
+  }
+  
   new_timer->start = now();
   *timer = new_timer;
+}
+
+/* Destroy an existing timer, given a timer created with timerCreate.
+ * 
+ * You must call this function before a timer variable created with
+ * timerCreate goes out of scope. Otherwise, you will leak memory and
+ * things will crash!
+ * 
+ * Do NOT call this function multiple times on the same timer variable,
+ * and do NOT call this function on a timer variable not created with
+ * timerCreate!
+ */
+void timerDestroy(stimer_t **timer) {
+  if (*timer != NULL) {
+    free(*timer);
+  }
 }
 
 /* Reset the specified timer. */

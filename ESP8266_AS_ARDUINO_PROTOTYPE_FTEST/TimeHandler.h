@@ -17,6 +17,7 @@ typedef struct  {
 } stimer_t;
 
 void timerCreate(stimer_t **timer);
+void timerDestroy(stimer_t **timer);
 uint32_t timerGetCurElapsed(stimer_t **timer);
 uint32_t timerStop(stimer_t **timer);
 uint32_t timerGetFinalElapsed(stimer_t **timer);
