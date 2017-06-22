@@ -1,7 +1,16 @@
+// Calibration feature TODO:
+//   - make it save the calibration in memory, for use if the WiFi is not available.
+//   - separate functionality to different file
+// WiFi feature TODO:
+//   - delay on boot with indication from LEDs - blinking RED, solid BLUE
+//   - on GPIO0 press, start AP
+//   - 
+
 #include "util.h"
 #include "Time.h"
 #include "TimeHandler.h"
 #include "WiFiConn.h"
+#include "MicSenseComm.h"
 #include "config.h"
 #include "led.h"
 
