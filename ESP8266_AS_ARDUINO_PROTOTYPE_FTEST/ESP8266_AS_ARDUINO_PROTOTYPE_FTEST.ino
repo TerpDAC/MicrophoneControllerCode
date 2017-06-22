@@ -20,8 +20,6 @@ extern "C" {
 #include "user_interface.h"
 }
 
-stimer_t *mtimer;
-
 int micValue = 0;
 
 // Thresholds
@@ -131,8 +129,6 @@ void setup() {
   Serial.println("Blocking until NTP time is fetched...");
   blockUntilTimeFetched();
   Serial.println("NTP time is fetched!");
-  
-  timerCreate(&mtimer);
 
   // Set LED off
   setRedLED(0);
