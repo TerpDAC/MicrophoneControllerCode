@@ -13,8 +13,8 @@
  * @date   May 2017
  */
 /*====================================================================*/
-#ifndef _WIFI_CONN_H
-#define _WIFI_CONN_H
+#ifndef _MICSENSE_COMM_H
+#define _MICSENSE_COMM_H
 void submitSum(uint32_t curTime, long totalSampleCount, long highTotalCount, long midTotalCount);
 void getCalibration();
 #endif
