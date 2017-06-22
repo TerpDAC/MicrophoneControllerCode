@@ -10,7 +10,14 @@
  * @date   May 2017
  */
 
- /*====================================================================*/
+#include <ESP8266HTTPClient.h>
+#include "MicSenseComm.h"
+#include "config.h"
+#include "util.h"
+#include "WiFiConn.h"
+#include "Time.h"
+
+/*====================================================================*/
 
 /* Set the calibration, given the server output line. */
 void setCalibration(String line, int update) {
