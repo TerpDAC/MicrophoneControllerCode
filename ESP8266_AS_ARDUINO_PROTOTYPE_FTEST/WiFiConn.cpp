@@ -13,12 +13,8 @@
 /*====================================================================*/
 
 #include <ESP8266WiFi.h>
-#include <ESP8266HTTPClient.h>
 #include "WiFiConfig.h"
 #include "WiFiConn.h"
-#include "Time.h"
-#include "config.h"
-#include "util.h"
 
 int value = 0;
 const char* host = "www.example.com";
