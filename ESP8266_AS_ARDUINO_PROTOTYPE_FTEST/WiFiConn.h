@@ -22,4 +22,7 @@ void wifiEnable();
 void wifiTest();
 void espDeepSleep(uint32_t sec);
 void espSleep(uint32_t sec);
+
+// Shared variables
+extern byte mac[6];
 #endif
