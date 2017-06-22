@@ -25,8 +25,8 @@ stimer_t *mtimer;
 int micValue = 0;
 
 // Thresholds
-int mid_thresh = 100;
-int high_thresh = 200;
+int mid_thresh = 500;
+int high_thresh = 600;
 
 /*
 void initVariant() {
