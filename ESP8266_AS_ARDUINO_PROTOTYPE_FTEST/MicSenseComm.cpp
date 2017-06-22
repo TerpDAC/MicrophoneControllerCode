@@ -150,7 +150,7 @@ void submitSum(uint32_t curTime, long totalSampleCount, long highTotalCount, lon
   // URL
   String mac_addr = String(mac[5], HEX) + String(mac[4], HEX) + String(mac[3], HEX) + String(mac[2], HEX) + String(mac[1], HEX) + String(mac[0], HEX);
 
-  String final_url = "http://" + String(server) + "/datasubmit?id=" + mac_addr + "&d=" + String(now()) + "," + String(highTotalCount) + "," + String(midTotalCount) + "," + String(totalSampleCount - (highTotalCount + midTotalCount));
+  String final_url = "http://" + MICSENSE_SERVER + "/datasubmit?id=" + mac_addr + "&d=" + String(now()) + "," + String(highTotalCount) + "," + String(midTotalCount) + "," + String(totalSampleCount - (highTotalCount + midTotalCount));
 
 #ifdef ENABLE_DEBUG_SERIAL
   // Print out the request we're going to send!
@@ -268,7 +268,7 @@ void getCalibration() {
   // URL
   String mac_addr = String(mac[5], HEX) + String(mac[4], HEX) + String(mac[3], HEX) + String(mac[2], HEX) + String(mac[1], HEX) + String(mac[0], HEX);
 
-  String final_url = "http://" + String(server) + "/calibrate?id=" + mac_addr;
+  String final_url = "http://" + MICSENSE_SERVER + "/calibrate?id=" + mac_addr;
 
 #ifdef ENABLE_DEBUG_SERIAL
   // Print out the request we're going to send!

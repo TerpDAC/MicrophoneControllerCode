@@ -5,8 +5,4 @@
 const char* ssid     = "WIFI_SSID";
 const char* password = "WIFI_PASS";
 
-/* Specify the server that the MicSense should contact for data
- * and calibration.
- */
-char server[] = "terpdac.pythonanywhere.com";
 #endif

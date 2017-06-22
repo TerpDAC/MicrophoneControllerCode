@@ -32,4 +32,8 @@ extern int high_thresh;
  */
 //#define ENABLE_DEBUG_SERIAL_VERBOSE
 
+/* Specify the server that the MicSense should contact for data
+ * and calibration.
+ */
+#define MICSENSE_SERVER "terpdac.pythonanywhere.com"
 #endif
