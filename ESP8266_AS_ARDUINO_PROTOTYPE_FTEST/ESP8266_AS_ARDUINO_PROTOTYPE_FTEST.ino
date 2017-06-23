@@ -5,6 +5,11 @@
 //   - delay on boot with indication from LEDs - blinking RED, solid BLUE
 //   - on GPIO0 press, start AP
 //   - 
+// Documentation
+//   - document this issue https://github.com/esp8266/Arduino/issues/1722
+//     aka: if using ESP.restart(), right after programming, must be power
+//     cycled or RESET button pressed before use, otherwise may hang upon
+//     regular reset
 
 #include "util.h"
 #include "Time.h"
