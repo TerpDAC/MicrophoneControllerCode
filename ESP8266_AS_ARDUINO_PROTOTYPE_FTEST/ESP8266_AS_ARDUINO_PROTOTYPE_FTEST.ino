@@ -48,24 +48,13 @@ void collectSum() {
   long midTotalCount = 0;
 
   // Create timer.
-  stimer_t *sumtimer;
+  stimer_t sumtimer;
 
   SerialPrintStrLn("Collecting data...");
   SerialPrintStr(" - Current mid thresh: ");
   Serial.println(mid_thresh);
   SerialPrintStr(" - Current high thresh: ");
   Serial.println(high_thresh);
-
-  // Initialize timer and start counting.
-  timerCreate(&sumtimer);
-
-  // Sanity check... did the timer actually get created?
-  if (sumtimer == NULL) {
-    SerialPrintStrLn("[collectSum] Unable to create new timer - malloc failed in timerCreate");
-    SerialPrintStrLn("[collectSum] Due to critical error, MicSense will now restart.");
-    ESP.restart();
-    return;
-  }
 
   // Fetch the elapsed time, and make sure it is less than COLLECT_SEC.
   // (from config.h)
@@ -102,10 +91,7 @@ void collectSum() {
 
   // Submit sums!
   // Arguments: start time, total samples, high samples, medium samples
-  submitSum(sumtimer->start, totalSampleCount, highTotalCount, midTotalCount);
-
-  // Clean up
-  timerDestroy(&sumtimer);
+  submitSum(sumtimer.start, totalSampleCount, highTotalCount, midTotalCount);
 }
 
 void setup() {

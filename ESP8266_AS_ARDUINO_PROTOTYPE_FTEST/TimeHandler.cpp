@@ -93,6 +93,11 @@ void digitalClockDisplay(){
 /* Create a new timer, given an empty timer argument.
  * 
  * Do NOT call this function multiple times on the same timer variable!
+ * 
+ * We strongly do not recommend using this function. This function requires
+ * malloc, and malloc is generally not a good idea on embedded platforms.
+ * If at all possible, stick to locally defined variables (in your function
+ * stack).
  */
 void timerCreate(stimer_t **timer) {
   blockUntilTimeFetched();
@@ -103,6 +108,7 @@ void timerCreate(stimer_t **timer) {
   if (new_timer == NULL) {
     // Uh oh, this can't be good...
     SerialPrintStrLn("[timerCreate] Unable to create new timer - malloc failed");
+    *timer = NULL;
     return;
   }
   
@@ -119,6 +125,11 @@ void timerCreate(stimer_t **timer) {
  * Do NOT call this function multiple times on the same timer variable,
  * and do NOT call this function on a timer variable not created with
  * timerCreate!
+ * 
+ * We strongly do not recommend using this function. This function implies
+ * malloc, and malloc is generally not a good idea on embedded platforms.
+ * If at all possible, stick to locally defined variables (in your function
+ * stack).
  */
 void timerDestroy(stimer_t **timer) {
   if (*timer != NULL) {
@@ -127,29 +138,29 @@ void timerDestroy(stimer_t **timer) {
 }
 
 /* Reset the specified timer. */
-uint32_t timerReset(stimer_t **timer) {
-  uint32_t elapsed = now() - (*timer)->start;
-  (*timer)->start = now();
+uint32_t timerReset(stimer_t *timer) {
+  uint32_t elapsed = now() - timer->start;
+  timer->start = now();
   return elapsed;
 }
 
 /* Get the current elapsed time (in seconds) for the specified timer. */
-uint32_t timerGetCurElapsed(stimer_t **timer) {
-  return (now() - ((*timer)->start));
+uint32_t timerGetCurElapsed(stimer_t *timer) {
+  return (now() - timer->start);
 }
 
 /* Stop the specified timer and return the timer's elapsed time. */
-uint32_t timerStop(stimer_t **timer) {
-  (*timer)->stop = now();
-  return ((*timer)->stop) - ((*timer)->start);
+uint32_t timerStop(stimer_t *timer) {
+  timer->stop = now();
+  return (timer->stop - timer->start);
 }
 
 /* Return the timer's elapsed time for the specified timer.
  * Note that timer should have been stopped in order for this to
  * return anything meaningful.
  */
-uint32_t timerGetFinalElapsed(stimer_t **timer) {
-  return ((*timer)->stop) - ((*timer)->start);
+uint32_t timerGetFinalElapsed(stimer_t *timer) {
+  return (timer->stop - timer->start);
 }
 
 /* Print a number formatted to digital clock type.
