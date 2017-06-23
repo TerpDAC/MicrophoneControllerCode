@@ -45,10 +45,10 @@ void collectSum() {
   // Create timer.
   stimer_t *sumtimer;
 
-  Serial.println("Collecting data...");
-  Serial.print(" - Current mid thresh: ");
+  SerialPrintStrLn("Collecting data...");
+  SerialPrintStr(" - Current mid thresh: ");
   Serial.println(mid_thresh);
-  Serial.print(" - Current high thresh: ");
+  SerialPrintStr(" - Current high thresh: ");
   Serial.println(high_thresh);
 
   // Initialize timer and start counting.
@@ -56,8 +56,8 @@ void collectSum() {
 
   // Sanity check... did the timer actually get created?
   if (sumtimer == NULL) {
-    Serial.println("[collectSum] Unable to create new timer - malloc failed in timerCreate");
-    Serial.println("[collectSum] Due to critical error, MicSense will now restart.");
+    SerialPrintStrLn("[collectSum] Unable to create new timer - malloc failed in timerCreate");
+    SerialPrintStrLn("[collectSum] Due to critical error, MicSense will now restart.");
     ESP.restart();
     return;
   }
@@ -88,11 +88,11 @@ void collectSum() {
   }
 
   // Print statistics of collection to serial for debugging
-  Serial.print("Total samples taken: ");
+  SerialPrintStr("Total samples taken: ");
   Serial.println(totalSampleCount);
-  Serial.print("High samples: ");
+  SerialPrintStr("High samples: ");
   Serial.println(highTotalCount);
-  Serial.print("Medium samples: ");
+  SerialPrintStr("Medium samples: ");
   Serial.println(midTotalCount);
 
   // Submit sums!
@@ -109,12 +109,12 @@ void setup() {
 
   Serial.setDebugOutput(true);
   
-  Serial.println("ESP8266 now in setup()!");
-  Serial.println("Reset/startup reason:");
+  SerialPrintStrLn("ESP8266 now in setup()!");
+  SerialPrintStrLn("Reset/startup reason:");
   Serial.println(ESP.getResetReason());
 
   // Set up LED system
-  //Serial.println("Initializing LED subsystem...");
+  //SerialPrintStrLn("Initializing LED subsystem...");
   initLED();
   //setLED(1);
 
@@ -126,16 +126,16 @@ void setup() {
   // Start the timing mechanism (+NTP)
   initTime();
   
-  Serial.println("Blocking until NTP time is fetched...");
+  SerialPrintStrLn("Blocking until NTP time is fetched...");
   blockUntilTimeFetched();
-  Serial.println("NTP time is fetched!");
+  SerialPrintStrLn("NTP time is fetched!");
 
   // Set LED off
   setRedLED(0);
   
-  Serial.println("Attempting to calibrate sensors from the server...");
+  SerialPrintStrLn("Attempting to calibrate sensors from the server...");
   getCalibration();
-  Serial.println("Setup complete!");
+  SerialPrintStrLn("Setup complete!");
 }
 
 void loop() {

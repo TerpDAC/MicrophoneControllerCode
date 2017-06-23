@@ -11,6 +11,7 @@
 #include "TimeHandler.h"
 #include "WiFiConn.h"
 #include "led.h"
+#include "util.h"
 
 // NTP Servers:
 IPAddress timeServer(132, 163, 4, 101); // time-a.timefreq.bldrdoc.gov
@@ -37,11 +38,11 @@ time_t getNtpTimeWiFiKick() {
 /* Initialize the time keeper. */
 void initTime() 
 { 
-  Serial.println("Starting UDP");
+  SerialPrintStrLn("Starting UDP");
   Udp.begin(localPort);
-  Serial.print("Local port: ");
+  SerialPrintStr("Local port: ");
   Serial.println(Udp.localPort());
-  Serial.println("waiting for sync");
+  SerialPrintStrLn("waiting for sync");
   setSyncProvider(getNtpTimeWiFiKick);
   // Sync the time every 10 seconds!
   setSyncInterval(10);
@@ -54,7 +55,7 @@ void blockUntilTimeFetched() {
   int count = 0;
   int ledEnabled = 0;
   while (timeStatus() == timeNotSet) {
-    Serial.println("Waiting...");
+    SerialPrintStrLn("Waiting...");
     delay(1000);
     count++;
     if (count == 5) getNtpTimeWiFiKick();
@@ -80,11 +81,11 @@ void digitalClockDisplay(){
   Serial.print(hour());
   printDigits(minute());
   printDigits(second());
-  Serial.print(" ");
+  SerialPrintStr(" ");
   Serial.print(day());
-  Serial.print(".");
+  SerialPrintStr(".");
   Serial.print(month());
-  Serial.print(".");
+  SerialPrintStr(".");
   Serial.print(year());
   Serial.println();
 }
@@ -101,7 +102,7 @@ void timerCreate(stimer_t **timer) {
   // Sanity check
   if (new_timer == NULL) {
     // Uh oh, this can't be good...
-    Serial.println("[timerCreate] Unable to create new timer - malloc failed");
+    SerialPrintStrLn("[timerCreate] Unable to create new timer - malloc failed");
     return;
   }
   
@@ -156,7 +157,7 @@ uint32_t timerGetFinalElapsed(stimer_t **timer) {
  */
 void printDigits(int digits){
   // utility for digital clock display: prints preceding colon and leading 0
-  Serial.print(":");
+  SerialPrintStr(":");
   if(digits < 10)
     Serial.print('0');
   Serial.print(digits);
@@ -171,13 +172,13 @@ byte packetBuffer[NTP_PACKET_SIZE]; //buffer to hold incoming & outgoing packets
 time_t getNtpTime()
 {
   while (Udp.parsePacket() > 0) ; // discard any previously received packets
-  Serial.println("Transmit NTP Request");
+  SerialPrintStrLn("Transmit NTP Request");
   sendNTPpacket(timeServer);
   uint32_t beginWait = millis();
   while (millis() - beginWait < 1500) {
     int size = Udp.parsePacket();
     if (size >= NTP_PACKET_SIZE) {
-      Serial.println("Receive NTP Response");
+      SerialPrintStrLn("Receive NTP Response");
       Udp.read(packetBuffer, NTP_PACKET_SIZE);  // read packet into the buffer
       unsigned long secsSince1900;
       // convert four bytes starting at location 40 to a long integer
@@ -188,7 +189,7 @@ time_t getNtpTime()
       return secsSince1900 - 2208988800UL + timeZone * SECS_PER_HOUR;
     }
   }
-  Serial.println("No NTP Response :-(");
+  SerialPrintStrLn("No NTP Response :-(");
   return 0; // return 0 if unable to get the time
 }
 

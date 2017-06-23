@@ -9,4 +9,8 @@ void ser_p(const char *fmt, ... );
 #define DPRINT(fmt, ...)
 #endif
 
+/* Define memory saving serial print functions. */
+#define SerialPrintStr(...) Serial.print(F(__VA_ARGS__))
+#define SerialPrintStrLn(...) Serial.println(F(__VA_ARGS__))
+
 #endif

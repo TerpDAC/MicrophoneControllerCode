@@ -15,6 +15,7 @@
 #include <ESP8266WiFi.h>
 #include "WiFiConfig.h"
 #include "WiFiConn.h"
+#include "util.h"
 
 int value = 0;
 const char* host = "www.example.com";
@@ -47,9 +48,9 @@ byte mac[6];                     // the MAC address of your Wifi shield
  * @see espSleep()
  */
 void espDeepSleep(uint32_t sec) {
-  Serial.print("Triggering deep sleep for ");
+  SerialPrintStr("Triggering deep sleep for ");
   Serial.print(sec);
-  Serial.println(" seconds...");
+  SerialPrintStrLn(" seconds...");
   wifiDisable();
   ESP.deepSleep(sec * 1000000);
 }
@@ -71,9 +72,9 @@ void espDeepSleep(uint32_t sec) {
  * @see espDeepSleep()
  */
 void espSleep(uint32_t sec) {
-  Serial.print("Triggering sleep for ");
+  SerialPrintStr("Triggering sleep for ");
   Serial.print(sec);
-  Serial.println(" seconds...");
+  SerialPrintStrLn(" seconds...");
   wifiDisable();
   delay(sec * 1000);
 }
@@ -88,22 +89,22 @@ void espSleep(uint32_t sec) {
  */
 void connectToWiFi() {
   WiFi.macAddress(mac);
-  Serial.print("MAC: ");
+  SerialPrintStr("MAC: ");
   Serial.print(mac[5],HEX);
-  Serial.print(":");
+  SerialPrintStr(":");
   Serial.print(mac[4],HEX);
-  Serial.print(":");
+  SerialPrintStr(":");
   Serial.print(mac[3],HEX);
-  Serial.print(":");
+  SerialPrintStr(":");
   Serial.print(mac[2],HEX);
-  Serial.print(":");
+  SerialPrintStr(":");
   Serial.print(mac[1],HEX);
-  Serial.print(":");
+  SerialPrintStr(":");
   Serial.println(mac[0],HEX);
   
   Serial.println();
   Serial.println();
-  Serial.print("Connecting to ");
+  SerialPrintStr("Connecting to ");
   Serial.println(ssid);
 
   WiFi.mode(WIFI_STA);
@@ -111,32 +112,32 @@ void connectToWiFi() {
   
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
-    Serial.print(".");
+    SerialPrintStr(".");
     
     if (WiFi.status() == WL_SCAN_COMPLETED) {
-      Serial.println("Scan completed");
+      SerialPrintStrLn("Scan completed");
     }
 
     if (WiFi.status() == WL_CONNECTION_LOST) {
-      Serial.println("Connection lost");
+      SerialPrintStrLn("Connection lost");
     }
     
     if (WiFi.status() == WL_IDLE_STATUS) {
-      Serial.println("Idle");
+      SerialPrintStrLn("Idle");
     }
 
     if (WiFi.status() == WL_NO_SSID_AVAIL) {
-      Serial.println("Could not find SSID");
+      SerialPrintStrLn("Could not find SSID");
     }
     
     if (WiFi.status() == WL_CONNECT_FAILED) {
-      Serial.println("Failed to connect to WiFi!");
+      SerialPrintStrLn("Failed to connect to WiFi!");
     }
   }
  
-  Serial.println("");
-  Serial.println("WiFi connected");  
-  Serial.println("IP address: ");
+  SerialPrintStrLn("");
+  SerialPrintStrLn("WiFi connected");  
+  SerialPrintStrLn("IP address: ");
   Serial.println(WiFi.localIP());
   
   wifiEnabled = 1;
@@ -147,7 +148,7 @@ bool waitForClient(WiFiClient client) {
   unsigned long timeout = millis();
   while (client.available() == 0) {
     if (millis() - timeout > 5000) {
-      Serial.println(">>> Client Timeout !");
+      SerialPrintStrLn(">>> Client Timeout !");
       client.stop();
       return false;
     }
@@ -157,25 +158,25 @@ bool waitForClient(WiFiClient client) {
 
 /* Test WiFi by grabbing a webpage. */
 void wifiTest() {
-  Serial.print("performing wifi test in 5s...");
+  SerialPrintStr("performing wifi test in 5s...");
   delay(5000);
   ++value;
  
-  Serial.print("connecting to ");
+  SerialPrintStr("connecting to ");
   Serial.println(host);
   
   // Use WiFiClient class to create TCP connections
   WiFiClient client;
   const int httpPort = 80;
   if (!client.connect(host, httpPort)) {
-    Serial.println("connection failed");
+    SerialPrintStrLn("connection failed");
     return;
   }
   
   // We now create a URI for the request
   //String url = "/testwifi/index.html";
   String url = "/";
-  Serial.print("Requesting URL: ");
+  SerialPrintStr("Requesting URL: ");
   Serial.println(url);
   
   // This will send the request to the server
@@ -191,12 +192,12 @@ void wifiTest() {
   }
   
   Serial.println();
-  Serial.println("closing connection");
+  SerialPrintStrLn("closing connection");
 }
 
 /* Disable WiFi. */
 void wifiDisable() {
-  Serial.println("Disconnecting from WiFi and disabling...");
+  SerialPrintStrLn("Disconnecting from WiFi and disabling...");
   WiFi.disconnect();
   WiFi.mode(WIFI_OFF);
   delay(100);
@@ -207,7 +208,7 @@ void wifiDisable() {
 
 /* Enable WiFi. */
 void wifiEnable() {
-  Serial.println("Enabling WiFi...");
+  SerialPrintStrLn("Enabling WiFi...");
   WiFi.forceSleepWake();
   delay(100);
   WiFi.mode(WIFI_STA);
