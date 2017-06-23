@@ -20,6 +20,12 @@ extern int high_thresh;
 /* Microphone analog source pin */
 #define ANALOG_PIN A0
 
+/* Maximum HTTP response size
+ * Should be set to something very low to avoid memory alloc issues
+ * Default is 25 (SenseOK:NNNN:NNNN\n = 18)
+ */
+#define MAX_HTTP_RESP_SIZE 25
+
 /* Enable debugging?
  * Note that this does not disable all serial messages, but it does
  * make operations much faster because of less output.

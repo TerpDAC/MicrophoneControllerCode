@@ -106,15 +106,26 @@ bool sturdyHTTP(String url, int attempts) {
     int httpCode = http.GET();
     
     if (httpCode > 0) {
-      Serial.println("[sturdyHTTP] ** Server responded");
-      String payload = http.getString();
-      totalBytesRead = payload.length();
-  
-      Serial.println("[sturdyHTTP] << " + payload);
+      totalBytesRead = http.getSize();
       
-      // SenseOK:#:#
-      if (payload.indexOf("SenseOK") != -1) {
-        setCalibration(payload, 1);
+      SerialPrintStr("[sturdyHTTP] ** Server responded with ");
+      Serial.print(totalBytesRead);
+      SerialPrintStrLn(" byte payload");
+
+      if (totalBytesRead > MAX_HTTP_RESP_SIZE) {
+        SerialPrintStr("[sturdyHTTP] ** ERROR: Exceeded max payload size of ");
+        Serial.print(MAX_HTTP_RESP_SIZE);
+        SerialPrintStrLn(", aborting to prevent problems.");
+      } else {
+        String payload = http.getString();
+    
+        SerialPrintStr("[sturdyHTTP] << ");
+        Serial.println(payload);
+        
+        // SenseOK:#:#
+        if (payload.indexOf("SenseOK") != -1) {
+          setCalibration(payload, 1);
+        }
       }
       
       if (totalBytesRead == 0) {
