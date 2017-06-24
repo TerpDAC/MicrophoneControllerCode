@@ -116,6 +116,15 @@ void timerCreate(stimer_t **timer) {
   *timer = new_timer;
 }
 
+/* Initialize a new timer, given a new timer argument.
+ * 
+ * Do NOT call this function multiple times on the same timer variable!
+ */
+void timerInit(stimer_t *timer) {
+  blockUntilTimeFetched();
+  timer->start = now();
+}
+
 /* Destroy an existing timer, given a timer created with timerCreate.
  * 
  * You must call this function before a timer variable created with

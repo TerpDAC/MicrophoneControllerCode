@@ -49,6 +49,7 @@ void collectSum() {
 
   // Create timer.
   stimer_t sumtimer;
+  timerInit(&sumtimer);
 
   SerialPrintStrLn("Collecting data...");
   SerialPrintStr(" - Current mid thresh: ");
