@@ -1,6 +1,3 @@
-// Calibration feature TODO:
-//   - make it save the calibration in memory, for use if the WiFi is not available.
-//   - separate functionality to different file
 // WiFi feature TODO:
 //   - delay on boot with indication from LEDs - blinking RED, solid BLUE
 //   - on GPIO0 press, start AP
@@ -124,6 +121,12 @@ void setup() {
 
   // Set LED off
   setRedLED(0);
+
+  // Initialize EEPROM
+  eepromInit();
+
+  SerialPrintStrLn("Attempting to calibrate sensors from local settings...");
+  loadLocalThresholds();
   
   SerialPrintStrLn("Attempting to calibrate sensors from the server...");
   getCalibration();

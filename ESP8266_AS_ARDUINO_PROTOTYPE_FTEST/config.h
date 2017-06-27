@@ -42,4 +42,83 @@ extern int high_thresh;
  * and calibration.
  */
 #define MICSENSE_SERVER "terpdac.pythonanywhere.com"
+
+/* EEPROM Definitions */
+void eepromInit();
+void loadLocalThresholds();
+void saveLocalThresholds();
+
+/* Specify the CRC32 size. This will always be 4 bytes. */
+#define EEPROM_DATA_CHUNK_CRC_SIZE 4
+
+/* Specify the EEPROM offset to read from for mid_thresh data
+ * chunk. This offset includes the CRC.
+ */
+#define EEPROM_MID_THRESH_OFFSET 0
+
+/* Specify the mid_thresh data chunk total size, including the
+ * CRC.
+ */
+#define EEPROM_MID_THRESH_SIZE 8
+
+/* Specify the EEPROM offset to read from for high_thresh data
+ * chunk. This offset includes the CRC.
+ */
+#define EEPROM_HIGH_THRESH_OFFSET 8
+
+/* Specify the high_thresh data chunk total size, including the
+ * CRC.
+ */
+#define EEPROM_HIGH_THRESH_SIZE 8
+
+/* Specify the EEPROM offset to read from for WiFi SSID data
+ * chunk. This offset includes the CRC.
+ */
+#define EEPROM_WIFI_SSID_OFFSET 16
+
+/* Specify the WiFi SSID data chunk total size, including the
+ * CRC.
+ */
+#define EEPROM_WIFI_SSID_SIZE 37
+
+/* Specify the EEPROM offset to read from for WiFi PSK data
+ * chunk. This offset includes the CRC.
+ */
+#define EEPROM_WIFI_PSK_OFFSET 56
+
+/* Specify the WiFi SSID data chunk total size, including the
+ * CRC.
+ */
+#define EEPROM_WIFI_PSK_SIZE 69
+
+/* Specify the EEPROM offset to read from for MicSense server
+ * address data chunk. This offset includes the CRC.
+ */
+#define EEPROM_MICSENSE_SERVER_OFFSET 128
+
+/* Specify the MicSense server address data chunk total size,
+ * including the CRC.
+ */
+#define EEPROM_MICSENSE_SERVER_SIZE 69
+
+/* Specify the EEPROM offset to read from for HTTPS usage
+ * configuration flag data chunk. This offset includes the CRC.
+ */
+#define EEPROM_USE_HTTPS_OFFSET 200
+
+/* Specify the HTTPS usage configuration flag data chunk total
+ * size, including the CRC.
+ */
+#define EEPROM_USE_HTTPS_SIZE 5
+
+/* Specify the EEPROM offset to read from for HTTPS fingerprint
+ * data chunk. This offset includes the CRC.
+ */
+#define EEPROM_HTTPS_FINGERPRINT_OFFSET 200
+
+/* Specify the HTTPS fingerprint data chunk total size, including
+ * the CRC.
+ */
+#define EEPROM_HTTPS_FINGERPRINT_SIZE 133
+
 #endif

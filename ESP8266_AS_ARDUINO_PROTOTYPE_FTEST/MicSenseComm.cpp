@@ -60,8 +60,29 @@ void setCalibration(String line, int update) {
         high_thresh_str = sense_part.substring(mid_thresh_str_end + 1, sense_part.length());
         mid_thresh_tmp = mid_thresh_str.toInt();
         high_thresh_tmp = high_thresh_str.toInt();
-        if (mid_thresh_tmp != 0) mid_thresh = mid_thresh_tmp; else { SerialPrintStrLn("Invalid argument to mid thresh: "); Serial.println(mid_thresh_str); Serial.println(); }
-        if (high_thresh_tmp != 0) high_thresh = high_thresh_tmp; else { SerialPrintStrLn("Invalid argument to high thresh: "); Serial.println(high_thresh_str); Serial.println(); }
+        
+        if ((mid_thresh_tmp > 0) && (mid_thresh_tmp < 1024)) {
+          if (mid_thresh != mid_thresh_tmp) {
+            mid_thresh = mid_thresh_tmp;
+            calibrationChanged = true;
+          }
+        } else {
+          SerialPrintStrLn("[setCalibration] Invalid argument to mid thresh: ");
+          Serial.println(mid_thresh_str);
+          Serial.println();
+        }
+        
+        if ((high_thresh_tmp > 0) && (high_thresh_tmp < 1024)) {
+          if (high_thresh != high_thresh_tmp) {
+            high_thresh = high_thresh_tmp;
+            calibrationChanged = true;
+          }
+        } else {
+          SerialPrintStrLn("[setCalibration] Invalid argument to high thresh: ");
+          Serial.println(high_thresh_str);
+          Serial.println();
+        }
+        
         calibrationSet = true;
         SerialPrintStrLn("Calibration set successfully!");
         DPRINT("Calibration set successfully!\n");
@@ -69,6 +90,11 @@ void setCalibration(String line, int update) {
     }
   }
 
+  if (calibrationChanged) {
+    SerialPrintStrLn("[setCalibration] Saving calibration to local storage.");
+    saveLocalThresholds();
+  }
+  
   if (!calibrationSet) {
     if (update) {
       SerialPrintStrLn("WARNING: Unable to update calibration!");

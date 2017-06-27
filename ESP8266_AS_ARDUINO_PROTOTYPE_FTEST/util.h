@@ -1,6 +1,8 @@
 #ifndef _UTIL_H
 #define _UTIL_H
 
+#include <Arduino.h>
+
 void ser_p(const char *fmt, ... );
 
 #ifdef DEBUG_PRINT
