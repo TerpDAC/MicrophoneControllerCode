@@ -88,6 +88,12 @@ uint32_t crc32(const void *buf, size_t size) {
  * called once.
  */
 void eepromInit() {
+  // WARNING:
+  //   This table is now deprecated. The calculations for each variable's offset
+  //   and size are automatically determined via macros. This table will be
+  //   condensed down into field name, field components, and field component sizes
+  //   only in a future commit.
+  // 
   // EEPROM usage:
   //   mid_thresh (int)
   //     offset 0 bytes
@@ -103,36 +109,30 @@ void eepromInit() {
   //     offset 16 bytes
   //       - 4 bytes CRC32
   //       - 32 bytes ASCII
-  //       - 1 byte NULL
-  //     Total = 37 bytes
+  //     Total = 36 bytes
   //     due to 8 byte chunking, will technically take up 40 bytes
   //   psk (str)
   //     offset 56 bytes
   //       - 4 bytes CRC32
   //       - 64 bytes ASCII
-  //       - 1 byte NULL
-  //     Total = 69 bytes
+  //     Total = 68 bytes
   //     due to 8 byte chunking, will technically take up 72 bytes
   //   micsense_server (str)
   //     offset 128 bytes
   //       - 4 bytes CRC32
   //       - 64 bytes ASCII
-  //       - 1 byte NULL
-  //     Total = 69 bytes
+  //     Total = 68 bytes
   //     due to 8 byte chunking, will technically take up 72 bytes
   //   use_https (str)
   //     offset 200 bytes
   //       - 4 bytes CRC32
   //       - 1 byte char "bool" (true/false, FF/00)
   //     Total = 5 bytes
-  //     due to 8 byte chunking, will technically take up 8 bytes
   //   https_fingerprint (str)
   //     offset 208 bytes
   //       - 4 bytes CRC32
   //       - 128 bytes ASCII
-  //       - 1 byte NULL
-  //     Total = 133 bytes
-  //     due to 8 byte chunking, will technically take up 136 bytes
+  //     Total = 132 bytes
   //     NOTE:
   //       For the fingerprint, the currently accepted one (as of writing) is
   //       a SHA1 fingerprint, which is very small (40-59 bytes, with or without
@@ -151,7 +151,7 @@ void eepromInit() {
   // need to be stored as SPIFFS instead of EEPROM due to size
   // constraints. Therefore, there is no space allocated here.
 
-  EEPROM.begin(344);
+  EEPROM.begin(768);
 }
 
 /**
@@ -267,8 +267,8 @@ void loadLocalThresholds() {
   int mid_thresh_tmp = 0;
   int high_thresh_tmp = 0;
   
-  eepromRead(EEPROM_MID_THRESH_OFFSET, &mid_thresh_tmp, EEPROM_MID_THRESH_SIZE - EEPROM_DATA_CHUNK_CRC_SIZE);
-  eepromRead(EEPROM_HIGH_THRESH_OFFSET, &high_thresh_tmp, EEPROM_HIGH_THRESH_SIZE - EEPROM_DATA_CHUNK_CRC_SIZE);
+  eepromRead(EEPROM_MID_THRESH_OFFSET, &mid_thresh_tmp, SUB_CRC(EEPROM_MID_THRESH_SIZE));
+  eepromRead(EEPROM_HIGH_THRESH_OFFSET, &high_thresh_tmp, SUB_CRC(EEPROM_HIGH_THRESH_SIZE));
   
   if ((mid_thresh_tmp > 0) && (mid_thresh_tmp < 1024)) {
     mid_thresh = mid_thresh_tmp;
