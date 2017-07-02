@@ -47,6 +47,8 @@ extern int high_thresh;
 void eepromInit();
 void loadLocalThresholds();
 void saveLocalThresholds();
+void loadLocalWiFiCredentials();
+void saveLocalWiFiCredentials(const char ssid[33], const char psk[65]);
 
 /* Specify the CRC32 size. This will always be 4 bytes. */
 #define EEPROM_DATA_CHUNK_CRC_SIZE 4
@@ -156,5 +158,17 @@ void saveLocalThresholds();
  * encrypted.
  */
 #define EEPROM_HTTPS_FINGERPRINT_SIZE ADD_CRC(ADD_ENC(128))
+
+/* definition to expand macro then apply to pragma message */
+/*
+#define VALUE_TO_STRING(x) #x
+#define VALUE(x) VALUE_TO_STRING(x)
+#define VAR_NAME_VALUE(var) #var "="  VALUE(var)
+#pragma message(VAR_NAME_VALUE(EEPROM_HTTPS_FINGERPRINT_OFFSET))
+#pragma message(VAR_NAME_VALUE(EEPROM_HTTPS_FINGERPRINT_SIZE))
+*/
+
+// STUPID
+#define PASSWD "asdfasdf"
 
 #endif

@@ -15,6 +15,7 @@
 #include <ESP8266WiFi.h>
 #include "WiFiConfig.h"
 #include "WiFiConn.h"
+#include "config.h"
 #include "util.h"
 
 int value = 0;
@@ -114,6 +115,10 @@ void connectToWiFi() {
   Serial.println(WiFi.psk());
   Serial.println();
 
+  loadLocalWiFiCredentials();
+  saveLocalWiFiCredentials(ssid, password);
+  loadLocalWiFiCredentials();
+  
   SerialPrintStr("Connecting to ");
   Serial.println(ssid);
 

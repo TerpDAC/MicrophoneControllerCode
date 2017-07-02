@@ -496,3 +496,31 @@ void saveLocalThresholds() {
   // Commit changes!
   EEPROM.commit();
 }
+
+void loadLocalWiFiCredentials() {
+  char ssid_tmp[33];
+  char psk_tmp[65];
+
+  SerialPrintStrLn("SUB_ENC(SUB_CRC(EEPROM_WIFI_SSID_SIZE))");
+  Serial.println(SUB_ENC(SUB_CRC(EEPROM_WIFI_SSID_SIZE)));
+  eepromCryptRead(EEPROM_WIFI_SSID_OFFSET, ssid_tmp, SUB_ENC(SUB_CRC(EEPROM_WIFI_SSID_SIZE)));
+
+  SerialPrintStrLn("SUB_ENC(SUB_CRC(EEPROM_WIFI_PSK_SIZE))");
+  Serial.println(SUB_ENC(SUB_CRC(EEPROM_WIFI_PSK_SIZE)));
+  eepromCryptRead(EEPROM_WIFI_PSK_OFFSET, psk_tmp, SUB_ENC(SUB_CRC(EEPROM_WIFI_PSK_SIZE)));
+
+  SerialPrintStr("ssid_tmp = ");
+  Serial.println(ssid_tmp);
+
+  SerialPrintStr("psk_tmp = ");
+  Serial.println(psk_tmp);
+  
+  Serial.println("We're doneeeeee");
+}
+
+void saveLocalWiFiCredentials(const char ssid[33], const char psk[65]) {
+  eepromCryptWrite(EEPROM_WIFI_SSID_OFFSET, (void *) ssid, SUB_ENC(SUB_CRC(EEPROM_WIFI_SSID_SIZE)));
+  eepromCryptWrite(EEPROM_WIFI_PSK_OFFSET, psk, SUB_ENC(SUB_CRC(EEPROM_WIFI_PSK_SIZE)));
+  
+  Serial.println("Saved");
+}

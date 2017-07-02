@@ -109,6 +109,9 @@ void setup() {
 
   setRedLED(1);
 
+  // Initialize EEPROM
+  eepromInit();
+
   // Connect to WiFi
   connectToWiFi();
   
@@ -121,9 +124,6 @@ void setup() {
 
   // Set LED off
   setRedLED(0);
-
-  // Initialize EEPROM
-  eepromInit();
 
   SerialPrintStrLn("Attempting to calibrate sensors from local settings...");
   loadLocalThresholds();
