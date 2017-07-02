@@ -104,10 +104,21 @@ void connectToWiFi() {
   
   Serial.println();
   Serial.println();
+
+  Serial.println();
+  SerialPrintStrLn("ESP8266 stored WiFi credentials:");
+  SerialPrintStr(" * SSID: ");
+  Serial.println(WiFi.SSID());
+
+  SerialPrintStr(" * PSK: ");
+  Serial.println(WiFi.psk());
+  Serial.println();
+
   SerialPrintStr("Connecting to ");
   Serial.println(ssid);
 
   WiFi.mode(WIFI_STA);
+  WiFi.persistent(false);
   WiFi.begin(ssid, password);
   
   while (WiFi.status() != WL_CONNECTED) {
