@@ -12,6 +12,11 @@
 #include "config.h"
 #include "util.h"
 #include <EEPROM.h>
+#include <bcrypt.hpp>
+#include <mbedtls-esp8266-arduino.h>
+#include <esp/hwrand.h>
+#include <mbedtls/sha256.h>
+#include <mbedtls/gcm.h>
 
 #define GET_RAW_BYTE(var, idx) ((uint8_t *)(var))[idx]
 #define SET_RAW_BYTE(var, idx, val) ((uint8_t *)(var))[idx] = val
@@ -262,6 +267,193 @@ void eepromRead(const int offset, void *data, size_t size) {
     memset(data, 0, size);
   }
 }
+
+/* TEMPORARY - needed to resolve an issue with linking on wrapper.c for bcrypt.
+ * Should hopefully be fixed when a newer ESP8266 Arduino SDK comes out.
+ * (Written while using v2.3.0 - delete this function if an error regarding this 
+ * function becoming a duplicate occurs.)
+ */
+void *memchr(const void *s, int c, size_t n)
+{
+    unsigned char *p = (unsigned char*)s;
+    while( n-- )
+        if( *p != (unsigned char)c )
+            p++;
+        else
+            return p;
+    return 0;
+}
+
+/**
+ * AES256 + bcrypt PW deriv
+ * Storage format:
+ *   [CRC32] [64 byte salt] [16 byte tag] [12 byte IV] [Encrypted data (decoded chunks of 16)]
+ */
+void eepromCryptWrite(const int offset, const void *data, size_t size) {
+  char bcrypt_salt[BCRYPT_HASHSIZE], bcrypt_hash[BCRYPT_HASHSIZE];
+  unsigned char sha256_hash[32];
+  unsigned char iv[12];
+  unsigned char tag[16];
+
+  unsigned char enc_data[size];
+  unsigned char eeprom_data[BCRYPT_HASHSIZE + 16 + 12 + size];
+
+  int result;
+  
+  mbedtls_gcm_context gcm;
+
+  /* Generate salt for bcrypt */
+  SerialPrintStrLn("[eepromCryptWrite] Generating salt for bcrypt...");
+  Bcrypt::gensalt(1, bcrypt_salt);
+
+  /* Build key to use for AES hash */
+  SerialPrintStrLn("[eepromCryptWrite] Building AES key, part 1 (bcrypt)...");
+  
+  // NOTE: bcrypt temporarily disabled while we're debugging an issue with
+  // hashpw() crashing the ESP8266... for now, the hash is assumed to be a
+  // zero array.
+  // ** THIS IS INSECURE - DO NOT USE IN PRODUCTION **
+  
+  //Bcrypt::hashpw(PASSWD, bcrypt_salt, bcrypt_hash);
+  memset(bcrypt_hash, 0, BCRYPT_HASHSIZE);
+  
+  SerialPrintStrLn("[eepromCryptWrite] Building AES key, part 2 (sha256)...");
+  mbedtls_sha256((const unsigned char *)bcrypt_hash, BCRYPT_HASHSIZE, sha256_hash, 0);
+  Serial.println(sha256_hash[0], HEX);
+  Serial.println(sha256_hash[1], HEX);
+  Serial.println(sha256_hash[2], HEX);
+
+  /* Generate IV */
+  SerialPrintStrLn("[eepromCryptWrite] Generating IV for AES...");
+  hwrand_fill(iv, 12);
+  
+  /* GCM */
+  SerialPrintStrLn("[eepromCryptWrite] Encrypting and signing with AES GCM...");
+  mbedtls_gcm_init(&gcm);
+  mbedtls_gcm_setkey(&gcm, MBEDTLS_CIPHER_ID_AES, sha256_hash, 256);
+  result = mbedtls_gcm_crypt_and_tag(&gcm, MBEDTLS_GCM_ENCRYPT, size, iv, 12, NULL, 0, (const unsigned char *) data, (unsigned char *) enc_data, 16, tag);
+  mbedtls_gcm_free(&gcm);
+
+  if (result != 0) {
+    SerialPrintStrLn("[eepromCryptWrite] Could not encrypt data!");
+    SerialPrintStr("[eepromCryptWrite] Error code (hex): ");
+    Serial.println(result, HEX);
+    return;
+  }
+
+  SerialPrintStrLn("Tag hex data (first/last 3 bytes):");
+  Serial.println(tag[0], HEX);
+  Serial.println(tag[1], HEX);
+  Serial.println(tag[2], HEX);
+  Serial.println(tag[13], HEX);
+  Serial.println(tag[14], HEX);
+  Serial.println(tag[15], HEX);
+
+  /* Save everything! */
+  SerialPrintStrLn("[eepromCryptWrite] Building final encrypted data...");
+  memcpy(eeprom_data, bcrypt_salt, BCRYPT_HASHSIZE);
+  memcpy(eeprom_data+BCRYPT_HASHSIZE, tag, 16);
+  memcpy(eeprom_data+BCRYPT_HASHSIZE+16, iv, 12);
+  memcpy(eeprom_data+BCRYPT_HASHSIZE+16+12, enc_data, size);
+
+  SerialPrintStrLn("[eepromCryptWrite] Writing final encrypted data to EEPROM...");
+  eepromWrite(offset, eeprom_data, size+BCRYPT_HASHSIZE+16+12);
+}
+
+int isAllZero(void *data, size_t size) {
+  unsigned char sum = 0;
+  size_t i;
+  for (i = 0; i < size; ++i) {
+    sum |= ((unsigned char *)data)[i];
+  }
+  
+  /* Return 1 if all zero, 0 if not */
+  return (sum ? 0 : 1);
+}
+
+void eepromCryptRead(const int offset, void *data, size_t size) {
+  char bcrypt_salt[BCRYPT_HASHSIZE], bcrypt_hash[BCRYPT_HASHSIZE];
+  unsigned char sha256_hash[32];
+  unsigned char iv[12];
+  unsigned char tag[16];
+  int result;
+
+  unsigned char enc_data[BCRYPT_HASHSIZE + 16 + 12 + size];
+
+  /* Read from EEPROM */
+  SerialPrintStrLn("[eepromCryptRead] Reading encrypted data from EEPROM...");
+  eepromRead(offset, enc_data, size+BCRYPT_HASHSIZE+16+12);
+
+  /* Make sure we didn't get back a zeroed-out response */
+  if (isAllZero(enc_data, size+BCRYPT_HASHSIZE+16+12)) {
+    /* Zero out memory */
+    SerialPrintStrLn("[eepromCryptRead] CRC32 failed when reading from EEPROM, returning.");
+    SerialPrintStrLn("(memset to zero)");
+    Serial.println(size);
+    memset(data, 0, size);
+    SerialPrintStrLn("(return)");
+    return;
+  }
+  
+  /* Read everything! */
+  SerialPrintStrLn("[eepromCryptRead] Extracting encrypted data...");
+  memcpy(bcrypt_salt, enc_data, BCRYPT_HASHSIZE);
+  memcpy(tag, enc_data+BCRYPT_HASHSIZE, 16);
+  memcpy(iv, enc_data+BCRYPT_HASHSIZE+16, 12);
+  memcpy(enc_data, enc_data+BCRYPT_HASHSIZE+16+12, size);
+  // model:
+  // copy 5 bytes from pos 12 to pos 0, so 0-4
+  // set idx 5 from pos 5-11 to zero
+  // memset(enc_data + 5, 0, 12 - 5);
+  memset(enc_data+size, 0, (BCRYPT_HASHSIZE+16+12) - size);
+
+  SerialPrintStrLn("Tag hex data (first/last 3 bytes):");
+  Serial.println(tag[0], HEX);
+  Serial.println(tag[1], HEX);
+  Serial.println(tag[2], HEX);
+  Serial.println(tag[13], HEX);
+  Serial.println(tag[14], HEX);
+  Serial.println(tag[15], HEX);
+
+  mbedtls_gcm_context gcm;
+
+  /* Build key to use for AES hash */
+  SerialPrintStrLn("[eepromCryptRead] Building AES key, part 1 (bcrypt)...");
+  
+  // NOTE: bcrypt temporarily disabled while we're debugging an issue with
+  // hashpw() crashing the ESP8266... for now, the hash is assumed to be a
+  // zero array.
+  // ** THIS IS INSECURE - DO NOT USE IN PRODUCTION **
+  
+  //Bcrypt::hashpw(PASSWD, bcrypt_salt, bcrypt_hash);
+  memset(bcrypt_hash, 0, BCRYPT_HASHSIZE);
+  
+  SerialPrintStrLn("[eepromCryptRead] Building AES key, part 2 (sha256)...");
+  mbedtls_sha256((const unsigned char *)bcrypt_hash, BCRYPT_HASHSIZE, sha256_hash, 0);
+  Serial.println(sha256_hash[0], HEX);
+  Serial.println(sha256_hash[1], HEX);
+  Serial.println(sha256_hash[2], HEX);
+  
+  /* GCM */
+  SerialPrintStrLn("[eepromCryptRead] Validating and decrypting with AES GCM...");
+  mbedtls_gcm_init(&gcm);
+  mbedtls_gcm_setkey(&gcm, MBEDTLS_CIPHER_ID_AES, sha256_hash, 256);
+  result = mbedtls_gcm_auth_decrypt(&gcm, size, iv, 12, NULL, 0, tag, 16, (const unsigned char *) enc_data, (unsigned char *) data);
+  mbedtls_gcm_free(&gcm);
+
+  if (result != 0) {
+    /* Zero out memory */
+    SerialPrintStrLn("[eepromCryptRead] Could not decrypt data!");
+    SerialPrintStr("[eepromCryptRead] Error code (hex): ");
+    Serial.println(result, HEX);
+
+    if (result == MBEDTLS_ERR_GCM_AUTH_FAILED) SerialPrintStrLn("[eepromCryptRead] Decoded error: MBEDTLS_ERR_GCM_AUTH_FAILED");
+    if (result == MBEDTLS_ERR_GCM_BAD_INPUT) SerialPrintStrLn("[eepromCryptRead] Decoded error: MBEDTLS_ERR_GCM_BAD_INPUT");
+    
+    memset(data, 0, size);
+  }
+}
+
 
 void loadLocalThresholds() {
   int mid_thresh_tmp = 0;
