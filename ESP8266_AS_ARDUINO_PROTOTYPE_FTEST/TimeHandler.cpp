@@ -55,7 +55,7 @@ void blockUntilTimeFetched() {
   int count = 0;
   int ledEnabled = 0;
   while (timeStatus() == timeNotSet) {
-    SerialPrintStrLn("Waiting...");
+    SerialPrintStrLn("[blockUntilTimeFetched] Waiting...");
     delay(1000);
     count++;
     if (count == 5) getNtpTimeWiFiKick();
@@ -192,13 +192,13 @@ byte packetBuffer[NTP_PACKET_SIZE]; //buffer to hold incoming & outgoing packets
 time_t getNtpTime()
 {
   while (Udp.parsePacket() > 0) ; // discard any previously received packets
-  SerialPrintStrLn("Transmit NTP Request");
+  SerialPrintStrLn("[getNtpTime] Transmit NTP Request");
   sendNTPpacket(timeServer);
   uint32_t beginWait = millis();
   while (millis() - beginWait < 1500) {
     int size = Udp.parsePacket();
     if (size >= NTP_PACKET_SIZE) {
-      SerialPrintStrLn("Receive NTP Response");
+      SerialPrintStrLn("[getNtpTime] Receive NTP Response");
       Udp.read(packetBuffer, NTP_PACKET_SIZE);  // read packet into the buffer
       unsigned long secsSince1900;
       // convert four bytes starting at location 40 to a long integer
@@ -209,7 +209,7 @@ time_t getNtpTime()
       return secsSince1900 - 2208988800UL + timeZone * SECS_PER_HOUR;
     }
   }
-  SerialPrintStrLn("No NTP Response :-(");
+  SerialPrintStrLn("[getNtpTime] No NTP Response :-(");
   return 0; // return 0 if unable to get the time
 }
 
