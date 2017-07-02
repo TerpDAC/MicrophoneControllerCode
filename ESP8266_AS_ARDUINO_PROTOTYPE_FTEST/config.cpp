@@ -169,7 +169,7 @@ void eepromInit() {
  * @see eepromRead()
  */
 void eepromWrite(const int offset, const void *data, size_t size) {
-  int pos = 0;
+  size_t pos = 0;
   uint32_t crc32_chksum = crc32(data, size);
 
   SerialPrintStr("[eepromWrite] Writing EEPROM offset ");
@@ -226,7 +226,7 @@ void eepromWrite(const int offset, const void *data, size_t size) {
  * @see eepromRead()
  */
 void eepromRead(const int offset, void *data, size_t size) {
-  int pos = 0;
+  size_t pos = 0;
   uint32_t crc32_chksum_ref = 0, crc32_chksum_computed = 0;
 
   SerialPrintStr("[eepromRead] Reading EEPROM offset ");
