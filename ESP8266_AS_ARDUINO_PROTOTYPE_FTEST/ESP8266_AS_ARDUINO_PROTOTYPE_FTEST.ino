@@ -48,10 +48,10 @@ void collectSum() {
   stimer_t sumtimer;
   timerInit(&sumtimer);
 
-  SerialPrintStrLn("Collecting data...");
-  SerialPrintStr(" - Current mid thresh: ");
+  SerialPrintStrLn("[collectSum] Collecting data...");
+  SerialPrintStr("[collectSum]  - Current mid thresh: ");
   Serial.println(mid_thresh);
-  SerialPrintStr(" - Current high thresh: ");
+  SerialPrintStr("[collectSum]  - Current high thresh: ");
   Serial.println(high_thresh);
 
   // Fetch the elapsed time, and make sure it is less than COLLECT_SEC.
@@ -80,11 +80,11 @@ void collectSum() {
   }
 
   // Print statistics of collection to serial for debugging
-  SerialPrintStr("Total samples taken: ");
+  SerialPrintStr("[collectSum] Total samples taken: ");
   Serial.println(totalSampleCount);
-  SerialPrintStr("High samples: ");
+  SerialPrintStr("[collectSum] High samples: ");
   Serial.println(highTotalCount);
-  SerialPrintStr("Medium samples: ");
+  SerialPrintStr("[collectSum] Medium samples: ");
   Serial.println(midTotalCount);
 
   // Submit sums!

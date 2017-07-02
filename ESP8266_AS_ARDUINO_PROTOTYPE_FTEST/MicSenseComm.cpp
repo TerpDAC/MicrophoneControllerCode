@@ -22,12 +22,13 @@
 /* Set the calibration, given the server output line. */
 void setCalibration(String line, int update) {
   bool calibrationSet = false;
+  bool calibrationChanged = false;
 
   // 012345678+ 
   // -------=---=
   // SenseOK:500:600
   
-  SerialPrintStrLn("----------- setCalibration -----------");
+  SerialPrintStrLn("[setCalibration] ----------- setCalibration -----------");
   
   if (line.indexOf("SenseOK") != -1) {
     String sense_part = line.substring(line.indexOf("SenseOK"));
@@ -84,8 +85,7 @@ void setCalibration(String line, int update) {
         }
         
         calibrationSet = true;
-        SerialPrintStrLn("Calibration set successfully!");
-        DPRINT("Calibration set successfully!\n");
+        SerialPrintStrLn("[setCalibration] Calibration set successfully!");
       }
     }
   }
@@ -97,13 +97,13 @@ void setCalibration(String line, int update) {
   
   if (!calibrationSet) {
     if (update) {
-      SerialPrintStrLn("WARNING: Unable to update calibration!");
+      SerialPrintStrLn("[setCalibration] WARNING: Unable to update calibration!");
     } else {
-      SerialPrintStrLn("WARNING: Unable to set calibration!");
+      SerialPrintStrLn("[setCalibration] WARNING: Unable to set calibration!");
     }
   }
 
-  SerialPrintStrLn("----------- end setCalibration -----------");
+  SerialPrintStrLn("[setCalibration] ----------- end setCalibration -----------");
 }
 
 bool sturdyHTTP(String url, int attempts) {
@@ -182,7 +182,6 @@ bool sturdyHTTP(String url, int attempts) {
  * number of mid samples detected.
  */
 void submitSum(uint32_t curTime, long totalSampleCount, long highTotalCount, long midTotalCount) {
-  int bytesRead = 0, totalBytesRead = 0;
   SerialPrintStrLn("[submitSum] Submit code goes here!");
 
   // URL
@@ -210,7 +209,6 @@ void submitSum(uint32_t curTime, long totalSampleCount, long highTotalCount, lon
 }
 
 void getCalibration() {
-  int bytesRead = 0, totalBytesRead = 0;
   SerialPrintStrLn("[getCalibration] Calibration code goes here!");
 
   // URL
