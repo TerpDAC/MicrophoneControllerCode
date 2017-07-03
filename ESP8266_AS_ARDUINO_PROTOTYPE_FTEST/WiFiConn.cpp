@@ -18,6 +18,16 @@
 #include "config.h"
 #include "util.h"
 
+/**
+ * WiFi SSID to connect to. Updated dynamically from stored configuration.
+ */
+char ssid[33] = {0};
+
+/**
+ * WiFi PSK to connect with. Updated dynamically from stored configuration.
+ */
+char password[65] = {0};
+
 int value = 0;
 const char* host = "www.example.com";
 
@@ -29,7 +39,7 @@ int wifiEnabled = 0;
 /**
  * MAC address of the ESP8266 WiFi board
  */
-byte mac[6];                     // the MAC address of your Wifi shield
+uint8_t mac[6];                     // the MAC address of your Wifi shield
 
 /**
  * Ask the ESP8266 to deep sleep for the specified amount of seconds.
@@ -90,6 +100,7 @@ void espSleep(uint32_t sec) {
  */
 void connectToWiFi() {
   WiFi.macAddress(mac);
+  
   SerialPrintStr("MAC: ");
   Serial.print(mac[5],HEX);
   SerialPrintStr(":");
@@ -115,8 +126,6 @@ void connectToWiFi() {
   Serial.println(WiFi.psk());
   Serial.println();
 
-  loadLocalWiFiCredentials();
-  saveLocalWiFiCredentials(ssid, password);
   loadLocalWiFiCredentials();
   
   SerialPrintStr("Connecting to ");

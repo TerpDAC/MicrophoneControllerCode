@@ -24,5 +24,7 @@ void espDeepSleep(uint32_t sec);
 void espSleep(uint32_t sec);
 
 // Shared variables
-extern byte mac[6];
+extern uint8_t mac[6];
+extern char ssid[33];
+extern char password[65];
 #endif

@@ -17,6 +17,10 @@
 #include "WiFiConn.h"
 #include "Time.h"
 
+char micsense_server[65] = {0};
+int  https_enabled = 0;
+char https_fingerprint[129] = {0};
+
 /*====================================================================*/
 
 /* Set the calibration, given the server output line. */
@@ -111,10 +115,10 @@ bool sturdyHTTP(String url, int attempts) {
   int totalBytesRead = 0;
   bool success = true;
 
+  // Use HTTPClient class to create HTTP/TCP connections
+  HTTPClient http;
+  
   while (num_attempts < attempts) {
-    // Use HTTPClient class to create HTTP/TCP connections
-    HTTPClient http;
-
     SerialPrintStr("[sturdyHTTP] Attempt ");
     Serial.print(num_attempts + 1);
     SerialPrintStr("/");
@@ -126,7 +130,11 @@ bool sturdyHTTP(String url, int attempts) {
 #endif
 
     // WiFi MAC address should be populated at this point!
-    http.begin(url);
+    if (https_enabled) {
+      http.begin(url, https_fingerprint);
+    } else {
+      http.begin(url);
+    }
   
     // start connection and send HTTP header
     int httpCode = http.GET();
@@ -187,7 +195,7 @@ void submitSum(uint32_t curTime, long totalSampleCount, long highTotalCount, lon
   // URL
   String mac_addr = String(mac[5], HEX) + String(mac[4], HEX) + String(mac[3], HEX) + String(mac[2], HEX) + String(mac[1], HEX) + String(mac[0], HEX);
 
-  String final_url = "http://" + String(MICSENSE_SERVER) + "/datasubmit?id=" + mac_addr + "&d=" + String(now()) + "," + String(highTotalCount) + "," + String(midTotalCount) + "," + String(totalSampleCount - (highTotalCount + midTotalCount));
+  String final_url = (https_enabled ? "https://" : "http://") + String(micsense_server) + "/datasubmit?id=" + mac_addr + "&d=" + String(now()) + "," + String(highTotalCount) + "," + String(midTotalCount) + "," + String(totalSampleCount - (highTotalCount + midTotalCount));
 
 #ifdef ENABLE_DEBUG_SERIAL
   // Print out the request we're going to send!
@@ -214,7 +222,7 @@ void getCalibration() {
   // URL
   String mac_addr = String(mac[5], HEX) + String(mac[4], HEX) + String(mac[3], HEX) + String(mac[2], HEX) + String(mac[1], HEX) + String(mac[0], HEX);
 
-  String final_url = "http://" + String(MICSENSE_SERVER) + "/calibrate?id=" + mac_addr;
+  String final_url = (https_enabled ? "https://" : "http://") + String(micsense_server) + "/calibrate?id=" + mac_addr;
 
 #ifdef ENABLE_DEBUG_SERIAL
   // Print out the request we're going to send!

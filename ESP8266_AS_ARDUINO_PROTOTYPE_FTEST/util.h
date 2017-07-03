@@ -1,6 +1,11 @@
 #ifndef _UTIL_H
 #define _UTIL_H
 
+extern "C" {
+  #include <cont.h>
+  extern cont_t g_cont;
+}
+
 #include <Arduino.h>
 
 void ser_p(const char *fmt, ... );
@@ -14,5 +19,14 @@ void ser_p(const char *fmt, ... );
 /* Define memory saving serial print functions. */
 #define SerialPrintStr(...) Serial.print(F(__VA_ARGS__))
 #define SerialPrintStrLn(...) Serial.println(F(__VA_ARGS__))
+
+/* Define configuration related functions. */
+#define PRINT_FOREVER(...) while (1) { SerialPrintStrLn(__VA_ARGS__); delay(2000); }
+
+/* Stack statistics function - print the current stack status */
+register uint32_t *sp asm("a1");
+
+#define DUMP_STACK_STATS() Serial.printf("unmodified stack   = %4d\n", cont_get_free_stack(&g_cont)); \
+  Serial.printf("current free stack = %4d\n", 4 * (sp - g_cont.stack))
 
 #endif

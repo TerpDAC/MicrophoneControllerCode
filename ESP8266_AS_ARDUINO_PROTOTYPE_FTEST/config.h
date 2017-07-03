@@ -1,6 +1,10 @@
 #ifndef _CONFIG_H
 #define _CONFIG_H
 
+extern "C" {
+#include <stdint.h>
+}
+
 /* Microphone settings */
 
 /* Define the DC bias of the measurements */
@@ -38,20 +42,52 @@ extern int high_thresh;
  */
 //#define ENABLE_DEBUG_SERIAL_VERBOSE
 
-/* Specify the server that the MicSense should contact for data
- * and calibration.
+/* Specify whether to preload all of the configuration or not.
+ * WiFi and server configuration will be loaded into EEPROM
+ * memory on startup, then stop to allow the provisioner
+ * to reset and disable the preload option.
+ * 
+ * WiFi preload configuration can be found in WiFiConfig.h, and
+ * server preload configuration can be found in MicSenseComm.h.
  */
-#define MICSENSE_SERVER "terpdac.pythonanywhere.com"
+//#define PRELOAD_ALL_CONFIG 1
+
+/* SPIFFS Definitions */
+void spiffsInit();
+
+/* Force SPIFFS to be formatted on startup. This should be enabled if
+ * you suspect any issues with the SPIFFS. Note that once enabled,
+ * you need to let it run once, and then uncomment this line and resend
+ * once the formatting completes.
+ */
+//#define FORCE_SPIFFS_FORMAT 1
 
 /* EEPROM Definitions */
 void eepromInit();
+
+/* Configuration Definitions */
 void loadLocalThresholds();
 void saveLocalThresholds();
 void loadLocalWiFiCredentials();
 void saveLocalWiFiCredentials(const char ssid[33], const char psk[65]);
+void loadAllConfiguration();
 
 /* Specify the CRC32 size. This will always be 4 bytes. */
 #define EEPROM_DATA_CHUNK_CRC_SIZE 4
+
+/* Individual salt size - salts for individual configuration pieces. */
+#define INDV_SALT_SIZE 64
+
+/* Raw key size - the raw key size for each individual configuration
+ * pieces.
+ */
+#define RAW_KEY_SIZE 1024
+
+/* General salt size - the size of the salt for the key scrambling
+ * function, designed to prevent simple code peeking. (Does NOT prevent
+ * any experienced people from figuring the data out, though!)
+ */
+#define SALT_SIZE 512
 
 /* Helper macro to add the CRC data chunk size into the
  * data size calculation.
@@ -167,8 +203,5 @@ void saveLocalWiFiCredentials(const char ssid[33], const char psk[65]);
 #pragma message(VAR_NAME_VALUE(EEPROM_HTTPS_FINGERPRINT_OFFSET))
 #pragma message(VAR_NAME_VALUE(EEPROM_HTTPS_FINGERPRINT_SIZE))
 */
-
-// STUPID
-#define PASSWD "asdfasdf"
 
 #endif

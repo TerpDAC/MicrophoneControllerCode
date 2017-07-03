@@ -11,8 +11,12 @@
 
 #include "config.h"
 #include "util.h"
+#include "MicSenseComm.h"
+#include "WiFiConn.h"
+#include "WiFiConfig.h"
+#include <ESP8266WiFi.h>
 #include <EEPROM.h>
-#include <bcrypt.hpp>
+#include <FS.h>
 #include <mbedtls-esp8266-arduino.h>
 #include <esp/hwrand.h>
 #include <mbedtls/sha256.h>
@@ -84,6 +88,219 @@ uint32_t crc32(const void *buf, size_t size) {
     crc = crc32_tab[(crc ^ *p++) & 0xFF] ^ (crc >> 8);
 
   return crc ^ ~0U;
+}
+
+int isAllZero(void *data, size_t size) {
+  unsigned char sum = 0;
+  size_t i;
+  for (i = 0; i < size; ++i) {
+    sum |= ((unsigned char *)data)[i];
+  }
+  
+  /* Return 1 if all zero, 0 if not */
+  return (sum ? 0 : 1);
+}
+
+/**
+ * Initialize SPIFFS.
+ * 
+ * Enable internal SPIFFS reading and writing. This should only be
+ * called once.
+ */
+void spiffsInit() {
+  bool ready;
+
+  noInterrupts();
+
+  if (ESP.getFlashChipRealSize() != ESP.getFlashChipSize()) {
+    SerialPrintStr("[spiffsInit] ERROR: Detected invalid flash configuration! IDE size is ");
+    Serial.print(ESP.getFlashChipSize());
+    SerialPrintStr(", but actual flash size is ");
+    Serial.print(ESP.getFlashChipRealSize());
+    SerialPrintStrLn(". Please update the Arduino IDE settings (Tools > Flash Size) to the correct size, and try again.");
+  }
+
+#ifdef FORCE_SPIFFS_FORMAT
+  SerialPrintStrLn("[spiffsInit] Detected forceful SPIFFS format, formatting.");
+  SPIFFS.format();
+  PRINT_FOREVER("[spiffsInit] Forceful SPIFFS format complete. Please comment out FORCE_SPIFFS_FORMAT in config.h and resend.");
+#endif
+
+  ready = SPIFFS.begin();
+  
+  if (!ready) {
+    SerialPrintStrLn("[spiffsInit] Detected failed mount, formatting.");
+    if (!SPIFFS.format()) {
+      SerialPrintStrLn("[spiffsInit] ERROR: Formatting failed! File writing will fail.");
+      interrupts();
+      return;
+    }
+    if (!SPIFFS.begin()) {
+      SerialPrintStrLn("[spiffsInit] ERROR: Failed to mount after attempt to format. File writing will fail.");
+      interrupts();
+      return;
+    }
+  }
+
+  SerialPrintStrLn("[spiffsInit] Mounting completed successfully.");
+
+  FSInfo fs_info;
+  SPIFFS.info(fs_info);
+
+  if (fs_info.totalBytes - fs_info.usedBytes < 1024) {
+    SerialPrintStrLn("[spiffsInit] Detected low SPIFFS space, formatting.");
+    if (!SPIFFS.format()) {
+      SerialPrintStrLn("[spiffsInit] ERROR: Formatting failed! File writing will fail.");
+      interrupts();
+      return;
+    }
+  }
+
+  interrupts();
+}
+/**
+ * Write file using SPIFFS.
+ * 
+ * Write data to the SPIFFS. This function will compute the CRC32 of
+ * the given data, and write it as the first 4 bytes after the given
+ * offset. Once done, the data will be written right after the
+ * checksum.
+ * 
+ * Note that if the file already exists, it will simply overwrite the
+ * file. This is meant to act as a configuration store of sorts.
+ * 
+ * @param [in] fn      filename of the file to write to
+ * @param [in] data    data to write to the file
+ * @param [in] size    size of the data that will be written to the file;
+ *                     does NOT include the CRC32
+ * @see spiffsRead()
+ */
+void spiffsWrite(const char *fn, uint8_t *data, size_t size) {
+  uint32_t crc32_chksum = crc32(data, size);
+
+  noInterrupts();
+  
+  SerialPrintStr("[spiffsWrite] Opening file: ");
+  Serial.println(fn);
+  DUMP_STACK_STATS();
+
+  if (SPIFFS.exists(fn)) {
+    // WORKAROUND: SPIFFS goes bonkers when overwriting file.
+    // Delete it first!
+    SerialPrintStr("[spiffsWrite] File already exists, deleting to start anew: ");
+    Serial.println(fn);
+    SPIFFS.remove(fn);
+  }
+  
+  File f = SPIFFS.open(fn, "w");
+  
+  if (!f) {
+      SerialPrintStr("[spiffsWrite] ERROR: File open failed for file: ");
+      Serial.println(fn);
+      return;
+  }
+
+  SerialPrintStr("[spiffsWrite] Successfully opened file: ");
+  Serial.println(fn);
+  DUMP_STACK_STATS();
+
+  SerialPrintStr("[spiffsWrite] CRC32 computed: ");
+  Serial.println(crc32_chksum, HEX);
+  
+  /* Write CRC32 bytes */
+  SerialPrintStrLn("[spiffsWrite] Writing CRC32...");
+  f.write((uint8_t *)&crc32_chksum, 4);
+
+  SerialPrintStr("[spiffsWrite] File position is now at: ");
+  Serial.println(f.position());
+
+  /* Write actual data bytes */
+  SerialPrintStrLn("[spiffsWrite] Writing data...");
+  f.write(data, size);
+
+  SerialPrintStr("[spiffsWrite] File position is now at: ");
+  Serial.println(f.position());
+
+  /* Close file */
+  SerialPrintStrLn("[spiffsWrite] Closing file...");
+  f.close();
+
+  SerialPrintStrLn("[spiffsWrite] Returning...");
+  interrupts();
+}
+
+/**
+ * Read file from the SPIFFS.
+ * 
+ * Read data from the SPIFFS. This function will read the entire data file
+ * specified (including the CRC32). Once read, the data will be verified with
+ * the first 4 bytes of the data chunk, aka the CRC32 checksum computed when
+ * the data was written.
+ * 
+ * If the data is verified, the data will be written to the pointer provided.
+ * If the checksum verification fails, the pointer will instead be written with
+ * zeroes. If the file does not exist, the pointer will also be written with
+ * zeroes.
+ * 
+ * @param [in]  fn      filename of the file to read from
+ * @param [out] data    data to read out from the EEPROM; should contain enough
+ *                      memory to store the amount of data specified in the size
+ *                      argument
+ * @param [in]  size    size of the data that will be read from the EEPROM;
+ *                      does NOT include the CRC32
+ * @see spiffsWrite()
+ */
+void spiffsRead(const char *fn, uint8_t *data, size_t size) {
+  uint32_t crc32_chksum_ref = 0, crc32_chksum_computed = 0;
+
+  noInterrupts();
+  
+  File f = SPIFFS.open(fn, "r");
+  
+  if (!f) {
+      SerialPrintStr("[spiffsRead] ERROR: File open failed for file: ");
+      Serial.println(fn);
+      memset(data, 0, size);
+      interrupts();
+      return;
+  }
+
+  if (f.size() == 0) {
+    SerialPrintStr("[spiffsRead] WARNING: File open detected emptiness for file: ");
+      Serial.println(fn);
+      memset(data, 0, size);
+      interrupts();
+      return;
+  }
+  
+  /* First, read the CRC32 checksum. */
+  f.read((uint8_t *)&crc32_chksum_ref, 4);
+
+  SerialPrintStr("[spiffsRead] File position is now at: ");
+  Serial.println(f.position());
+
+  /* Then, read the rest of the file... */
+  f.read((uint8_t *)data, size);
+
+  SerialPrintStr("[spiffsRead] File position is now at: ");
+  Serial.println(f.position());
+
+  /* Verify checksum */
+  crc32_chksum_computed = crc32(data, size);
+  
+  if (crc32_chksum_computed != crc32_chksum_ref) {
+    /* Zero out memory */
+    SerialPrintStr("[spiffsRead] CRC32 match failed for file ");
+    Serial.print(fn);
+    SerialPrintStr(" - computed CRC32 ");
+    Serial.print(crc32_chksum_computed, HEX);
+    SerialPrintStr(" does not match reference (stored) CRC32 ");
+    Serial.println(crc32_chksum_ref, HEX);
+    
+    memset(data, 0, size);
+  }
+
+  interrupts();
 }
 
 /**
@@ -177,6 +394,8 @@ void eepromWrite(const int offset, const void *data, size_t size) {
   size_t pos = 0;
   uint32_t crc32_chksum = crc32(data, size);
 
+  noInterrupts();
+
   SerialPrintStr("[eepromWrite] Writing EEPROM offset ");
   Serial.print(offset);
   SerialPrintStr(", size ");
@@ -208,6 +427,8 @@ void eepromWrite(const int offset, const void *data, size_t size) {
       Serial.println(EEPROM.read(offset + 4 + pos), HEX);
     }
   }
+
+  interrupts();
 }
 
 /**
@@ -234,6 +455,8 @@ void eepromRead(const int offset, void *data, size_t size) {
   size_t pos = 0;
   uint32_t crc32_chksum_ref = 0, crc32_chksum_computed = 0;
 
+  noInterrupts();
+  
   SerialPrintStr("[eepromRead] Reading EEPROM offset ");
   Serial.print(offset);
   SerialPrintStr(", size ");
@@ -263,62 +486,238 @@ void eepromRead(const int offset, void *data, size_t size) {
     Serial.print(crc32_chksum_computed, HEX);
     SerialPrintStr(" does not match reference (stored) CRC32 ");
     Serial.println(crc32_chksum_ref, HEX);
-    
+
     memset(data, 0, size);
   }
+
+  interrupts();
 }
 
-/* TEMPORARY - needed to resolve an issue with linking on wrapper.c for bcrypt.
- * Should hopefully be fixed when a newer ESP8266 Arduino SDK comes out.
- * (Written while using v2.3.0 - delete this function if an error regarding this 
- * function becoming a duplicate occurs.)
- */
-void *memchr(const void *s, int c, size_t n)
-{
-    unsigned char *p = (unsigned char*)s;
-    while( n-- )
-        if( *p != (unsigned char)c )
-            p++;
-        else
-            return p;
-    return 0;
+/* Scrambling functions */
+uint8_t reverse(uint8_t b) {
+   b = (b & 0xF0) >> 4 | (b & 0x0F) << 4;
+   b = (b & 0xCC) >> 2 | (b & 0x33) << 2;
+   b = (b & 0xAA) >> 1 | (b & 0x55) << 1;
+   return b;
 }
 
 /**
- * AES256 + bcrypt PW deriv
- * Storage format:
- *   [CRC32] [64 byte salt] [16 byte tag] [12 byte IV] [Encrypted data (decoded chunks of 16)]
+ * Scramble bytes with a basic method.
+ * 
+ * Given the input bytes, perform a simple scramble on them. Note that once
+ * scrambled, there is no way to reverse the bytes. (Reversing can be done
+ * manually, but there is no function provided to do so. This is meant to be
+ * a one-way transformation function.)
+ * 
+ * Operations performed, in order:
+ *   For each byte, flip its bits.
+ *   Reverse byte order and perform add/subtract transform:
+ *     Lower side = upper side + 3
+ *     Upper side = lower side - 3
+ * 
+ * @param [in] bytes   bytes to scramble
+ * @param [in] size    size of the bytes to scramble
+ * @see scrambleBytesAdv()
+ */
+void scrambleBytesBasic(uint8_t *bytes, size_t size) {
+  size_t i;
+  uint8_t b;
+  
+  SerialPrintStrLn("[scrambleBytesBasic] Doing basic byte scrambling...");
+  SerialPrintStr("[scrambleBytesBasic] First 3 bytes: ");
+  Serial.print(bytes[0], HEX);
+  Serial.print(bytes[1], HEX);
+  Serial.println(bytes[2], HEX);
+  
+  for (i = 0; i < size; i++) {
+    //ESP.wdtFeed();
+    b = bytes[i];
+    b = (b & 0xF0) >> 4 | (b & 0x0F) << 4;
+    b = (b & 0xCC) >> 2 | (b & 0x33) << 2;
+    b = (b & 0xAA) >> 1 | (b & 0x55) << 1;
+    b += 1;
+    bytes[i] = b;
+  }
+
+  /* Reverse bytes */
+  for (i = 0; i < size / 2; i++) {
+    b = bytes[i];
+    bytes[i] = bytes[size - i - 1] + 3;
+    bytes[size - i - 1] = b - 3;
+  }
+
+  SerialPrintStr("[scrambleBytesBasic] Post scramble, first 3 bytes: ");
+  Serial.print(bytes[0], HEX);
+  Serial.print(bytes[1], HEX);
+  Serial.println(bytes[2], HEX);
+  
+  DUMP_STACK_STATS();
+}
+
+/**
+ * Scramble bytes with a more advanced method.
+ * 
+ * Given the input bytes, perform a more complicated scramble on them.
+ * Note that once scrambled, there is no way to reverse the bytes. (Reversing
+ * can be done manually, but there is no function provided to do so. This is
+ * meant to be a one-way transformation function.)
+ * 
+ * Operations performed, in order:
+ *   Perform basic scramble.
+ *   Read salt from SPIFFS.
+ *     If salt doesn't exist, generate one and save it.
+ *   Scramble salt.
+ *   Append MAC to salt.
+ *   Mix MAC into salt (starting from idx 0, even byte swaps).
+ *   XOR bytes with salt.
+ *   Invert each byte.
+ * 
+ * @param [in] bytes   bytes to scramble
+ * @param [in] size    size of the bytes to scramble
+ * @see scrambleBytesBasic()
+ */
+void scrambleBytesAdv(uint8_t *bytes, size_t size) {
+  uint8_t salt[SALT_SIZE + 6];
+  uint8_t tmp;
+  size_t i;
+
+  SerialPrintStrLn("[scrambleBytesAdv] Doing advanced byte scrambling...");
+  SerialPrintStr("[scrambleBytesAdv] First 3 bytes: ");
+  Serial.print(bytes[0], HEX);
+  Serial.print(bytes[1], HEX);
+  Serial.println(bytes[2], HEX);
+  
+  SerialPrintStrLn("[scrambleBytesAdv] Doing basic byte scrambling...");
+  scrambleBytesBasic(bytes, size);
+
+  /* Prepare salt */
+  DUMP_STACK_STATS();
+  SerialPrintStrLn("[scrambleBytesAdv] Reading salt...");
+  spiffsRead("/salt", salt, SALT_SIZE);
+
+  if (isAllZero(salt, SALT_SIZE)) {
+    SerialPrintStrLn("[scrambleBytesAdv] Generating salt...");
+    
+    /* Generate new salt */
+    hwrand_fill(salt, SALT_SIZE);
+
+    /* Save it */
+    SerialPrintStrLn("[scrambleBytesAdv] Saving salt...");
+    spiffsWrite("/salt", salt, SALT_SIZE);
+  }
+
+  SerialPrintStrLn("[scrambleBytesAdv] Scrambling salt...");
+  scrambleBytesBasic(salt, SALT_SIZE);
+
+  SerialPrintStrLn("[scrambleBytesAdv] Fetching MAC address and saving it to the end of salt...");
+  WiFi.macAddress(salt + SALT_SIZE);
+
+  /* Mix MAC into salt */
+  SerialPrintStrLn("[scrambleBytesAdv] Mixing MAC into salt...");
+  for (i = 0; i < 6; i++) {
+    tmp = salt[i * 2];
+    salt[i * 2] = salt[SALT_SIZE + i];
+    salt[SALT_SIZE + i] = tmp;
+  }
+
+  /* XOR with salt + MAC + invert */
+  SerialPrintStrLn("[scrambleBytesAdv] XORing bytes with salt and inverting...");
+  for (i = 0; i < size; i++) {
+    bytes[i] ^= salt[i % (SALT_SIZE + 6)];
+    bytes[i] = ~bytes[i];
+  }
+
+  SerialPrintStr("[scrambleBytesAdv] Post scramble, first 3 bytes: ");
+  Serial.print(bytes[0], HEX);
+  Serial.print(bytes[1], HEX);
+  Serial.println(bytes[2], HEX);
+}
+
+/**
+ * Write encrypted data to the EEPROM, stored with a checksum.
+ * 
+ * Given unencrypted data, write encrypted data to the EEPROM.
+ * The function will generate a new salt, IV, and key to go with
+ * the data being stored, and they will be saved alongside the
+ * encrypted data. (Base key will be stored in SPIFFS, while the salt,
+ * IV, and resulting tag will be stored in EEPROM next to the
+ * encrypted data.) The final key is derived from mixing.
+ * 
+ * Note that this just provides some obscurity to the data being stored -
+ * it will only protect your data from possible casual snoopers (e.g.
+ * someone that dumps the firmware and does not know what to do with it).
+ * Physical protection to the device is still MANDATORY - this does NOT
+ * provide meaningful data security due to keys being stored on the
+ * device.
+ * 
+ * Once encrypted, the data will be sent to eepromWrite(), where it will
+ * compute the CRC32 of the given data, and write it as the first 4 bytes
+ * after the given offset. Once done, the data will be written right after the
+ * checksum.
+ * 
+ * This is the final storage format:
+ * [CRC32] [64 byte salt] [16 byte tag] [12 byte IV]
+ * [Encrypted data (decoded chunks of 16)]
+ * 
+ * Encryption occurs as such:
+ *   salt <- Gen(1^INDV_SALT_SIZE)
+ *   key <- Gen(1^RAW_KEY_SIZE)
+ *   key = SCRAMBLE_ADV(key)
+ *   pre_aes_key <- key || salt
+ *   aes_key <- sha256(pre_aes_key)
+ *   iv <- Gen(1^IV_SIZE)
+ *   ciphertext, tag <- AES-GCM(aes_key, iv, plaintext)
+ * 
+ * @param [in] offset  offset of the EEPROM to write to
+ * @param [in] data    unencrypted data to write to the EEPROM encrypted
+ * @param [in] size    size of the data that will be written to the EEPROM;
+ *                     does NOT include the CRC32 or encrypted data appended
+ * @see eepromCryptRead()
+ * @see eepromWrite()
  */
 void eepromCryptWrite(const int offset, const void *data, size_t size) {
-  char bcrypt_salt[BCRYPT_HASHSIZE], bcrypt_hash[BCRYPT_HASHSIZE];
+  uint8_t indv_salt[INDV_SALT_SIZE];
+  unsigned char raw_key[RAW_KEY_SIZE + INDV_SALT_SIZE];
   unsigned char sha256_hash[32];
   unsigned char iv[12];
   unsigned char tag[16];
 
   unsigned char enc_data[size];
-  unsigned char eeprom_data[BCRYPT_HASHSIZE + 16 + 12 + size];
+  unsigned char eeprom_data[INDV_SALT_SIZE + 16 + 12 + size];
 
   int result;
   
   mbedtls_gcm_context gcm;
 
-  /* Generate salt for bcrypt */
-  SerialPrintStrLn("[eepromCryptWrite] Generating salt for bcrypt...");
-  Bcrypt::gensalt(1, bcrypt_salt);
+  /* Generate salt for raw key */
+  SerialPrintStrLn("[eepromCryptWrite] Generating salt for raw key...");
+  hwrand_fill(indv_salt, INDV_SALT_SIZE);
 
   /* Build key to use for AES hash */
-  SerialPrintStrLn("[eepromCryptWrite] Building AES key, part 1 (bcrypt)...");
+  SerialPrintStrLn("[eepromCryptWrite] Building AES key, part 1 (raw key)...");
+
+  /* Generate a new raw key */
+  SerialPrintStrLn("[eepromCryptWrite]  * Generating random raw key...");
+  hwrand_fill(raw_key, RAW_KEY_SIZE);
+
+  /* Write the raw key to SPIFFS */
+  String key_fn = "/key_" + String(offset);
+  SerialPrintStrLn("[eepromCryptWrite]  * Saving raw key to SPIFFS...");
+  spiffsWrite(key_fn.c_str(), raw_key, RAW_KEY_SIZE);
   
-  // NOTE: bcrypt temporarily disabled while we're debugging an issue with
-  // hashpw() crashing the ESP8266... for now, the hash is assumed to be a
-  // zero array.
-  // ** THIS IS INSECURE - DO NOT USE IN PRODUCTION **
-  
-  //Bcrypt::hashpw(PASSWD, bcrypt_salt, bcrypt_hash);
-  memset(bcrypt_hash, 0, BCRYPT_HASHSIZE);
+  /* 
+   * Scramble and harass to make a new little key (and disguise the one that
+   * people may see in code)
+   */
+  SerialPrintStrLn("[eepromCryptWrite]  * Scrambling raw key to derive new key...");
+  scrambleBytesAdv(raw_key, RAW_KEY_SIZE);
+
+  /* Add our individual salt */
+  SerialPrintStrLn("[eepromCryptWrite]  * Appending individual salt to new key...");
+  memcpy(raw_key + RAW_KEY_SIZE, indv_salt, INDV_SALT_SIZE);
   
   SerialPrintStrLn("[eepromCryptWrite] Building AES key, part 2 (sha256)...");
-  mbedtls_sha256((const unsigned char *)bcrypt_hash, BCRYPT_HASHSIZE, sha256_hash, 0);
+  mbedtls_sha256((const unsigned char *)raw_key, RAW_KEY_SIZE + INDV_SALT_SIZE, sha256_hash, 0);
   Serial.println(sha256_hash[0], HEX);
   Serial.println(sha256_hash[1], HEX);
   Serial.println(sha256_hash[2], HEX);
@@ -351,61 +750,98 @@ void eepromCryptWrite(const int offset, const void *data, size_t size) {
 
   /* Save everything! */
   SerialPrintStrLn("[eepromCryptWrite] Building final encrypted data...");
-  memcpy(eeprom_data, bcrypt_salt, BCRYPT_HASHSIZE);
-  memcpy(eeprom_data+BCRYPT_HASHSIZE, tag, 16);
-  memcpy(eeprom_data+BCRYPT_HASHSIZE+16, iv, 12);
-  memcpy(eeprom_data+BCRYPT_HASHSIZE+16+12, enc_data, size);
+  memcpy(eeprom_data, indv_salt, INDV_SALT_SIZE);
+  memcpy(eeprom_data+INDV_SALT_SIZE, tag, 16);
+  memcpy(eeprom_data+INDV_SALT_SIZE+16, iv, 12);
+  memcpy(eeprom_data+INDV_SALT_SIZE+16+12, enc_data, size);
 
   SerialPrintStrLn("[eepromCryptWrite] Writing final encrypted data to EEPROM...");
-  eepromWrite(offset, eeprom_data, size+BCRYPT_HASHSIZE+16+12);
+  eepromWrite(offset, eeprom_data, size+INDV_SALT_SIZE+16+12);
 }
 
-int isAllZero(void *data, size_t size) {
-  unsigned char sum = 0;
-  size_t i;
-  for (i = 0; i < size; ++i) {
-    sum |= ((unsigned char *)data)[i];
-  }
-  
-  /* Return 1 if all zero, 0 if not */
-  return (sum ? 0 : 1);
-}
-
+/**
+ * Read and verify encrypted data from the EEPROM.
+ * 
+ * Read encrypted data from the EEPROM, and decrypt the data if at all possible.
+ * This function will read the entire data chunk specified (including the CRC32,
+ * and encryption paramaters). Once read, the data will be verified with
+ * the first 4 bytes of the data chunk, aka the CRC32 checksum computed when
+ * the data was written. If the checksum fails, the data pointer will be zeroed
+ * out. This is all done within eepromRead().
+ * 
+ * If the data is verified, the encryption parameters are then extracted - the
+ * salt, IV, and tag are separated. From there, the key for this particular data
+ * chunk is also fetched, and it is mixed to produce the final key. The data will
+ * them be verified with the tag and key. If the data is authenticated, the data
+ * will be written to the pointer provided. However, if authentication fails, or
+ * there is an issue with decrypting the data, the pointer will instead be written
+ * with zeroes.
+ * 
+ * Note that this just provides some obscurity to the data being stored -
+ * it will only protect your data from possible casual snoopers (e.g.
+ * someone that dumps the firmware and does not know what to do with it).
+ * Physical protection to the device is still MANDATORY - this does NOT
+ * provide meaningful data security due to keys being stored on the
+ * device.
+ * 
+ * Decryption occurs as such:
+ *   salt <- (retrieve)
+ *   key <- (retrieve)
+ *   key = SCRAMBLE_ADV(key)
+ *   pre_aes_key <- key || salt
+ *   aes_key <- sha256(pre_aes_key)
+ *   iv <- (retrieve)
+ *   plaintext, vrfy <- AES-GCM-DEC(aes_key, iv, ciphertext)
+ *   if (vrfy) return plaintext; else return none
+ * 
+ * @param [in]  offset  offset of the EEPROM to read from
+ * @param [out] data    data to read out from the EEPROM; should contain enough
+ *                      memory to store the amount of data specified in the size
+ *                      argument
+ * @param [in]  size    size of the data that will be read from the EEPROM;
+ *                      does NOT include the CRC32
+ * @see eepromCryptWrite()
+ * @see eepromRead()
+ */
 void eepromCryptRead(const int offset, void *data, size_t size) {
-  char bcrypt_salt[BCRYPT_HASHSIZE], bcrypt_hash[BCRYPT_HASHSIZE];
+  uint8_t indv_salt[INDV_SALT_SIZE];
+  unsigned char raw_key[RAW_KEY_SIZE + INDV_SALT_SIZE];
   unsigned char sha256_hash[32];
   unsigned char iv[12];
   unsigned char tag[16];
   int result;
 
-  unsigned char enc_data[BCRYPT_HASHSIZE + 16 + 12 + size];
+  unsigned char enc_data[INDV_SALT_SIZE + 16 + 12 + size];
 
   /* Read from EEPROM */
   SerialPrintStrLn("[eepromCryptRead] Reading encrypted data from EEPROM...");
-  eepromRead(offset, enc_data, size+BCRYPT_HASHSIZE+16+12);
+  eepromRead(offset, enc_data, size+INDV_SALT_SIZE+16+12);
 
   /* Make sure we didn't get back a zeroed-out response */
-  if (isAllZero(enc_data, size+BCRYPT_HASHSIZE+16+12)) {
+  if (isAllZero(enc_data, size+INDV_SALT_SIZE+16+12)) {
     /* Zero out memory */
     SerialPrintStrLn("[eepromCryptRead] CRC32 failed when reading from EEPROM, returning.");
     SerialPrintStrLn("(memset to zero)");
     Serial.println(size);
-    memset(data, 0, size);
+    if (size > 1)
+      memset(data, 0, size);
     SerialPrintStrLn("(return)");
     return;
   }
   
   /* Read everything! */
   SerialPrintStrLn("[eepromCryptRead] Extracting encrypted data...");
-  memcpy(bcrypt_salt, enc_data, BCRYPT_HASHSIZE);
-  memcpy(tag, enc_data+BCRYPT_HASHSIZE, 16);
-  memcpy(iv, enc_data+BCRYPT_HASHSIZE+16, 12);
-  memcpy(enc_data, enc_data+BCRYPT_HASHSIZE+16+12, size);
-  // model:
-  // copy 5 bytes from pos 12 to pos 0, so 0-4
-  // set idx 5 from pos 5-11 to zero
-  // memset(enc_data + 5, 0, 12 - 5);
-  memset(enc_data+size, 0, (BCRYPT_HASHSIZE+16+12) - size);
+  memcpy(indv_salt, enc_data, INDV_SALT_SIZE);
+  memcpy(tag, enc_data+INDV_SALT_SIZE, 16);
+  memcpy(iv, enc_data+INDV_SALT_SIZE+16, 12);
+  memcpy(enc_data, enc_data+INDV_SALT_SIZE+16+12, size);
+  /* 
+   * model:
+   * copy 5 bytes from pos 12 to pos 0, so 0-4
+   * set idx 5 from pos 5-11 to zero
+   * memset(enc_data + 5, 0, 12 - 5); 
+   */
+  memset(enc_data+size, 0, (INDV_SALT_SIZE+16+12) - size);
 
   SerialPrintStrLn("Tag hex data (first/last 3 bytes):");
   Serial.println(tag[0], HEX);
@@ -418,18 +854,41 @@ void eepromCryptRead(const int offset, void *data, size_t size) {
   mbedtls_gcm_context gcm;
 
   /* Build key to use for AES hash */
-  SerialPrintStrLn("[eepromCryptRead] Building AES key, part 1 (bcrypt)...");
+  SerialPrintStrLn("[eepromCryptRead] Building AES key, part 1 (raw key)...");
+
+  /* Read the raw key from SPIFFS */
+  String key_fn = "/key_" + String(offset);
+  if (!SPIFFS.exists(key_fn.c_str())) {
+    SerialPrintStrLn("[eepromCryptRead] Raw key file not found in SPIFFS, stopping.");
+    if (size > 1)
+      memset(data, 0, size);
+    return;
+  }
+
+  SerialPrintStrLn("[eepromCryptRead]  * Reading raw key from SPIFFS...");
+  spiffsRead(key_fn.c_str(), raw_key, RAW_KEY_SIZE);
+
+  if (isAllZero(raw_key, RAW_KEY_SIZE)) {
+    SerialPrintStrLn("[eepromCryptRead] Read a very strange all-zero raw key file from SPIFFS, deleting and stopping.");
+    SPIFFS.remove(key_fn.c_str());
+    if (size > 1)
+      memset(data, 0, size);
+    return;
+  }
   
-  // NOTE: bcrypt temporarily disabled while we're debugging an issue with
-  // hashpw() crashing the ESP8266... for now, the hash is assumed to be a
-  // zero array.
-  // ** THIS IS INSECURE - DO NOT USE IN PRODUCTION **
-  
-  //Bcrypt::hashpw(PASSWD, bcrypt_salt, bcrypt_hash);
-  memset(bcrypt_hash, 0, BCRYPT_HASHSIZE);
+  /* 
+   * Scramble and harass to make a new little key (and disguise the one that
+   * people may see in code)
+   */
+  SerialPrintStrLn("[eepromCryptRead]  * Scrambling raw key to derive new key...");
+  scrambleBytesAdv(raw_key, RAW_KEY_SIZE);
+
+  /* Add our individual salt */
+  SerialPrintStrLn("[eepromCryptRead]  * Appending individual salt to new key...");
+  memcpy(raw_key + RAW_KEY_SIZE, indv_salt, INDV_SALT_SIZE);
   
   SerialPrintStrLn("[eepromCryptRead] Building AES key, part 2 (sha256)...");
-  mbedtls_sha256((const unsigned char *)bcrypt_hash, BCRYPT_HASHSIZE, sha256_hash, 0);
+  mbedtls_sha256((const unsigned char *)raw_key, RAW_KEY_SIZE + INDV_SALT_SIZE, sha256_hash, 0);
   Serial.println(sha256_hash[0], HEX);
   Serial.println(sha256_hash[1], HEX);
   Serial.println(sha256_hash[2], HEX);
@@ -449,12 +908,20 @@ void eepromCryptRead(const int offset, void *data, size_t size) {
 
     if (result == MBEDTLS_ERR_GCM_AUTH_FAILED) SerialPrintStrLn("[eepromCryptRead] Decoded error: MBEDTLS_ERR_GCM_AUTH_FAILED");
     if (result == MBEDTLS_ERR_GCM_BAD_INPUT) SerialPrintStrLn("[eepromCryptRead] Decoded error: MBEDTLS_ERR_GCM_BAD_INPUT");
-    
-    memset(data, 0, size);
+
+    if (size > 1)
+      memset(data, 0, size);
   }
 }
 
-
+/**
+ * Load thresholds stored in EEPROM.
+ * 
+ * Attempt to load thresholds stored in EEPROM. If the thresholds stored are
+ * invalid, this function will not update anything.
+ * 
+ * @see saveLocalThresholds()
+ */
 void loadLocalThresholds() {
   int mid_thresh_tmp = 0;
   int high_thresh_tmp = 0;
@@ -484,6 +951,14 @@ void loadLocalThresholds() {
   Serial.println(high_thresh);
 }
 
+/**
+ * Save thresholds from memory into EEPROM.
+ * 
+ * Attempt to save thresholds from memory into EEPROM. This function will
+ * overwrite any existing thresholds stored.
+ * 
+ * @see loadLocalThresholds()
+ */
 void saveLocalThresholds() {
   SerialPrintStrLn("[saveLocalThresholds] Saving thresholds!");
 
@@ -497,16 +972,30 @@ void saveLocalThresholds() {
   EEPROM.commit();
 }
 
+/**
+ * Load WiFi credentials stored in EEPROM.
+ * 
+ * Attempt to load WiFi credentials stored in EEPROM. If the WiFi credentials
+ * stored are invalid, this function will not update anything.
+ * 
+ * This configuration field is encrypted.
+ * 
+ * @see saveLocalWiFiCredentials()
+ */
 void loadLocalWiFiCredentials() {
   char ssid_tmp[33];
   char psk_tmp[65];
 
+  /*
   SerialPrintStrLn("SUB_ENC(SUB_CRC(EEPROM_WIFI_SSID_SIZE))");
   Serial.println(SUB_ENC(SUB_CRC(EEPROM_WIFI_SSID_SIZE)));
+  */
   eepromCryptRead(EEPROM_WIFI_SSID_OFFSET, ssid_tmp, SUB_ENC(SUB_CRC(EEPROM_WIFI_SSID_SIZE)));
 
+  /*
   SerialPrintStrLn("SUB_ENC(SUB_CRC(EEPROM_WIFI_PSK_SIZE))");
   Serial.println(SUB_ENC(SUB_CRC(EEPROM_WIFI_PSK_SIZE)));
+  */
   eepromCryptRead(EEPROM_WIFI_PSK_OFFSET, psk_tmp, SUB_ENC(SUB_CRC(EEPROM_WIFI_PSK_SIZE)));
 
   SerialPrintStr("ssid_tmp = ");
@@ -514,13 +1003,169 @@ void loadLocalWiFiCredentials() {
 
   SerialPrintStr("psk_tmp = ");
   Serial.println(psk_tmp);
-  
-  Serial.println("We're doneeeeee");
+
+  if (strlen(ssid_tmp) <= 0) {
+    SerialPrintStrLn("[loadLocalWiFiCredentials] Found empty SSID, not loading.");
+  } else {
+    strcpy(ssid, ssid_tmp);
+  }
+
+  if (strlen(psk_tmp) <= 0) {
+    SerialPrintStrLn("[loadLocalWiFiCredentials] Found empty PSK, not loading.");
+  } else {
+    strcpy(password, psk_tmp);
+  }
 }
 
+/**
+ * Save WiFi credentials into EEPROM.
+ * 
+ * Attempt to save WiFi credentials provided into EEPROM. This function will
+ * overwrite any existing credentials stored.
+ * 
+ * This configuration field is encrypted.
+ * 
+ * @param [in]  ssid    WiFi SSID to save
+ * @param [in]  psk     WiFi PSK to save
+ * @see loadLocalWiFiCredentials()
+ */
 void saveLocalWiFiCredentials(const char ssid[33], const char psk[65]) {
+  SerialPrintStrLn("[saveLocalWiFiCredentials] Saving WiFi credentials!");
+
+  SerialPrintStrLn("[saveLocalWiFiCredentials]   Saving WiFi SSID...");
   eepromCryptWrite(EEPROM_WIFI_SSID_OFFSET, (void *) ssid, SUB_ENC(SUB_CRC(EEPROM_WIFI_SSID_SIZE)));
-  eepromCryptWrite(EEPROM_WIFI_PSK_OFFSET, psk, SUB_ENC(SUB_CRC(EEPROM_WIFI_PSK_SIZE)));
   
-  Serial.println("Saved");
+  SerialPrintStrLn("[saveLocalWiFiCredentials]   Saving WiFi PSK...");
+  eepromCryptWrite(EEPROM_WIFI_PSK_OFFSET, psk, SUB_ENC(SUB_CRC(EEPROM_WIFI_PSK_SIZE)));
+
+  // Commit changes!
+  EEPROM.commit();
+
+  SerialPrintStrLn("[saveLocalWiFiCredentials] All saved!");
 }
+
+/**
+ * Load server configuration stored in EEPROM.
+ * 
+ * Attempt to load server configuration stored in EEPROM. If the configuration
+ * stored is invalid, this function will not update anything.
+ * 
+ * This configuration field is encrypted, except for HTTPS usage.
+ * 
+ * @see saveLocalWiFiCredentials()
+ */
+void loadLocalServerCredentials() {
+  char micsense_server_tmp[65];
+  char https_fingerprint_tmp[129];
+  
+  /*
+  SerialPrintStrLn("SUB_ENC(SUB_CRC(EEPROM_WIFI_SSID_SIZE))");
+  Serial.println(SUB_ENC(SUB_CRC(EEPROM_WIFI_SSID_SIZE)));
+  */
+  eepromCryptRead(EEPROM_MICSENSE_SERVER_OFFSET, micsense_server_tmp, SUB_ENC(SUB_CRC(EEPROM_MICSENSE_SERVER_SIZE)));
+  micsense_server_tmp[64] = '\0';
+
+  eepromRead(EEPROM_USE_HTTPS_OFFSET, &https_enabled, SUB_CRC(EEPROM_USE_HTTPS_SIZE));
+  
+  /*
+  SerialPrintStrLn("SUB_ENC(SUB_CRC(EEPROM_WIFI_PSK_SIZE))");
+  Serial.println(SUB_ENC(SUB_CRC(EEPROM_WIFI_PSK_SIZE)));
+  */
+  eepromCryptRead(EEPROM_HTTPS_FINGERPRINT_OFFSET, https_fingerprint_tmp, SUB_ENC(SUB_CRC(EEPROM_HTTPS_FINGERPRINT_SIZE)));
+  https_fingerprint_tmp[128] = '\0';
+
+  SerialPrintStr("micsense_server_tmp = ");
+  Serial.println(micsense_server_tmp);
+
+  SerialPrintStr("https_enabled = ");
+  Serial.println(https_enabled);
+  
+  SerialPrintStr("https_fingerprint_tmp = ");
+  Serial.println(https_fingerprint_tmp);
+
+  if (strlen(micsense_server_tmp) <= 0) {
+    SerialPrintStrLn("[loadLocalServerCredentials] Found empty server, not loading.");
+  } else {
+    strcpy(micsense_server, micsense_server_tmp);
+  }
+
+  if (strlen(https_fingerprint_tmp) <= 0) {
+    SerialPrintStrLn("[loadLocalServerCredentials] Found empty server HTTPS fingerprint, not loading.");
+  } else {
+    strcpy(https_fingerprint, https_fingerprint_tmp);
+  }
+}
+
+/**
+ * Save server configuration into EEPROM.
+ * 
+ * Attempt to save server configuration provided into EEPROM. This function will
+ * overwrite any existing configuration stored.
+ * 
+ * This configuration field is encrypted.
+ * 
+ * @param [in]  ssid    WiFi SSID to save
+ * @param [in]  psk     WiFi PSK to save
+ * @see loadLocalWiFiCredentials()
+ */
+void saveLocalServerCredentials(const char micsense_server[65], const char use_https, const char https_fingerprint[129]) {
+  SerialPrintStrLn("[saveLocalServerCredentials] Saving server configuration!");
+
+  SerialPrintStrLn("[saveLocalServerCredentials]   Saving MicSense server...");
+  eepromCryptWrite(EEPROM_MICSENSE_SERVER_OFFSET, (void *) micsense_server, SUB_ENC(SUB_CRC(EEPROM_MICSENSE_SERVER_SIZE)));
+
+  SerialPrintStrLn("[saveLocalServerCredentials]   Saving HTTPS usage flag...");
+  eepromWrite(EEPROM_USE_HTTPS_OFFSET, &use_https, SUB_CRC(EEPROM_USE_HTTPS_SIZE));
+  
+  SerialPrintStrLn("[saveLocalServerCredentials]   Saving HTTPS fingerprint...");
+  eepromCryptWrite(EEPROM_HTTPS_FINGERPRINT_OFFSET, https_fingerprint, SUB_ENC(SUB_CRC(EEPROM_HTTPS_FINGERPRINT_SIZE)));
+
+  // Commit changes!
+  EEPROM.commit();
+
+  SerialPrintStrLn("[saveLocalServerCredentials] All saved!");
+}
+
+
+void loadAllConfiguration() {
+  /* WiFi Credentials */
+#if defined(PRELOAD_SSID_PSK) || defined(PRELOAD_ALL_CONFIG)
+  SerialPrintStrLn("[loadAllConfiguration] Will preload WiFi configuration!");
+  SerialPrintStr("[loadAllConfiguration] SSID: ");
+  SerialPrintStrLn(PRELOAD_SSID);
+  SerialPrintStr("[loadAllConfiguration] PSK:  ");
+  SerialPrintStrLn(PRELOAD_PASS);
+  saveLocalWiFiCredentials(PRELOAD_SSID, PRELOAD_PASS);
+#ifndef PRELOAD_ALL_CONFIG
+  PRINT_FOREVER("[loadAllConfiguration] WiFi configuration preloading complete. Please comment out PRELOAD_SSID_PSK in WiFiConfig.h and resend.");
+#else
+  SerialPrintStrLn("[loadAllConfiguration] WiFi configuration preloading complete.");
+#endif
+#endif
+  SerialPrintStrLn("[loadAllConfiguration] Loading WiFi configuration...");
+  loadLocalWiFiCredentials();
+
+  /* MicSense Server Credentials */
+#if defined(PRELOAD_SERVER_CONFIG) || defined(PRELOAD_ALL_CONFIG)
+  SerialPrintStrLn("[loadAllConfiguration] Will preload server configuration!");
+  SerialPrintStr("[loadAllConfiguration] Server:             ");
+  SerialPrintStrLn(PRELOAD_MICSENSE_SERVER);
+  SerialPrintStr("[loadAllConfiguration] HTTPS:              ");
+  Serial.println(PRELOAD_USE_HTTPS);
+  SerialPrintStr("[loadAllConfiguration] HTTPS Fingerprint:  ");
+  SerialPrintStrLn(PRELOAD_HTTPS_FINGERPRINT);
+  saveLocalServerCredentials(PRELOAD_MICSENSE_SERVER, PRELOAD_USE_HTTPS, PRELOAD_HTTPS_FINGERPRINT);
+#ifndef PRELOAD_ALL_CONFIG
+  PRINT_FOREVER("[loadAllConfiguration] Server configuration preloading complete. Please comment out PRELOAD_SERVER_CONFIG in MicSenseComm.h and resend.");
+#else
+  SerialPrintStrLn("[loadAllConfiguration] Server configuration preloading complete.");
+#endif
+#endif
+  SerialPrintStrLn("[loadAllConfiguration] Loading server configuration...");
+  loadLocalServerCredentials();
+
+#ifdef PRELOAD_ALL_CONFIG
+  PRINT_FOREVER("[loadAllConfiguration] All configuration has been preloaded. Please comment out PRELOAD_ALL_CONFIG in WiFiConfig.h and resend.");
+#endif
+}
+

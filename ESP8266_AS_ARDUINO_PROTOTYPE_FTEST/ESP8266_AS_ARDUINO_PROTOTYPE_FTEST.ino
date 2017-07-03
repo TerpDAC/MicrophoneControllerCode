@@ -112,6 +112,12 @@ void setup() {
   // Initialize EEPROM
   eepromInit();
 
+  // Initialize SPIFFS
+  spiffsInit();
+
+  // Load configuration
+  loadAllConfiguration();
+
   // Connect to WiFi
   connectToWiFi();
   
