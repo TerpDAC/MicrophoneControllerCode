@@ -118,6 +118,9 @@ void setup() {
   // Load configuration
   loadAllConfiguration();
 
+  // Probe for config AP mode
+  configAPModeProbe();
+
   // Connect to WiFi
   connectToWiFi();
   

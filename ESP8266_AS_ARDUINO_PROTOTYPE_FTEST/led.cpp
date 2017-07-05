@@ -38,6 +38,8 @@ volatile int ledState = 0;
  */
 void initLED() {
   pinMode(LED_PIN, OUTPUT);
+  pinMode(2, OUTPUT);
+  digitalWrite(2, HIGH);
   //initLEDTimer();
   //startLEDTimer();
 }

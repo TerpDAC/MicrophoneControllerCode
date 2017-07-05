@@ -23,8 +23,11 @@ void wifiTest();
 void espDeepSleep(uint32_t sec);
 void espSleep(uint32_t sec);
 
+void configAPModeProbe();
+
 // Shared variables
 extern uint8_t mac[6];
 extern char ssid[33];
 extern char password[65];
+extern char config_pass[64];
 #endif

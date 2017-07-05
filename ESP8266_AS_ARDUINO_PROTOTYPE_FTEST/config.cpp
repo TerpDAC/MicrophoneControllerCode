@@ -243,10 +243,10 @@ void spiffsWrite(const char *fn, uint8_t *data, size_t size) {
  * zeroes.
  * 
  * @param [in]  fn      filename of the file to read from
- * @param [out] data    data to read out from the EEPROM; should contain enough
+ * @param [out] data    data to read out from the SPIFFS; should contain enough
  *                      memory to store the amount of data specified in the size
  *                      argument
- * @param [in]  size    size of the data that will be read from the EEPROM;
+ * @param [in]  size    size of the data that will be read from the SPIFFS;
  *                      does NOT include the CRC32
  * @see spiffsWrite()
  */
@@ -373,7 +373,7 @@ void eepromInit() {
   // need to be stored as SPIFFS instead of EEPROM due to size
   // constraints. Therefore, there is no space allocated here.
 
-  EEPROM.begin(768);
+  EEPROM.begin(1024);
 }
 
 /**
@@ -413,10 +413,12 @@ void eepromWrite(const int offset, const void *data, size_t size) {
   /* Write actual data bytes */
   for (pos = 0; pos < size; pos++) {
     EEPROM.write(offset + 4 + pos, GET_RAW_BYTE(data, pos));
+#ifdef ENABLE_DEBUG_SERIAL_VERBOSE
     SerialPrintStr("[eepromWrite] Byte ");
     Serial.print(pos);
     SerialPrintStr(" returns ");
     Serial.println(GET_RAW_BYTE(data, pos), HEX);
+#endif
 
     if (EEPROM.read(offset + 4 + pos) != GET_RAW_BYTE(data, pos)) {
       SerialPrintStr("[eepromWrite] Mismatched byte @ ");
@@ -471,10 +473,12 @@ void eepromRead(const int offset, void *data, size_t size) {
   /* Read data bytes */
   for (pos = 0; pos < size; pos++) {
     SET_RAW_BYTE(data, pos, EEPROM.read(offset + 4 + pos));
+#ifdef ENABLE_DEBUG_SERIAL_VERBOSE
     SerialPrintStr("[eepromRead] Byte ");
     Serial.print(pos);
     SerialPrintStr(" returns ");
     Serial.println(EEPROM.read(offset + 4 + pos), HEX);
+#endif
   }
 
   /* Verify checksum */
@@ -555,6 +559,31 @@ void scrambleBytesBasic(uint8_t *bytes, size_t size) {
 }
 
 /**
+ * Obtain the stored salt.
+ * 
+ * Get the salt from SPIFFS, raw (unscrambled). If it doesn't exist yet,
+ * generate one from random and save it.
+ * 
+ * @param [in] salt    bytes to save salt to, assumed that it is large enough
+ *                     to contain SALT_SIZE bytes
+ */
+void getSalt(uint8_t *salt) {
+  SerialPrintStrLn("[getSalt] Reading salt...");
+  spiffsRead("/salt", salt, SALT_SIZE);
+
+  if (isAllZero(salt, SALT_SIZE)) {
+    SerialPrintStrLn("[getSalt] Generating salt...");
+    
+    /* Generate new salt */
+    hwrand_fill(salt, SALT_SIZE);
+
+    /* Save it */
+    SerialPrintStrLn("[getSalt] Saving salt...");
+    spiffsWrite("/salt", salt, SALT_SIZE);
+  }
+}
+
+/**
  * Scramble bytes with a more advanced method.
  * 
  * Given the input bytes, perform a more complicated scramble on them.
@@ -593,18 +622,7 @@ void scrambleBytesAdv(uint8_t *bytes, size_t size) {
   /* Prepare salt */
   DUMP_STACK_STATS();
   SerialPrintStrLn("[scrambleBytesAdv] Reading salt...");
-  spiffsRead("/salt", salt, SALT_SIZE);
-
-  if (isAllZero(salt, SALT_SIZE)) {
-    SerialPrintStrLn("[scrambleBytesAdv] Generating salt...");
-    
-    /* Generate new salt */
-    hwrand_fill(salt, SALT_SIZE);
-
-    /* Save it */
-    SerialPrintStrLn("[scrambleBytesAdv] Saving salt...");
-    spiffsWrite("/salt", salt, SALT_SIZE);
-  }
+  getSalt(salt);
 
   SerialPrintStrLn("[scrambleBytesAdv] Scrambling salt...");
   scrambleBytesBasic(salt, SALT_SIZE);
@@ -985,24 +1003,33 @@ void saveLocalThresholds() {
 void loadLocalWiFiCredentials() {
   char ssid_tmp[33];
   char psk_tmp[65];
+  char config_pass_tmp[64];
 
   /*
   SerialPrintStrLn("SUB_ENC(SUB_CRC(EEPROM_WIFI_SSID_SIZE))");
   Serial.println(SUB_ENC(SUB_CRC(EEPROM_WIFI_SSID_SIZE)));
   */
   eepromCryptRead(EEPROM_WIFI_SSID_OFFSET, ssid_tmp, SUB_ENC(SUB_CRC(EEPROM_WIFI_SSID_SIZE)));
+  ssid_tmp[32] = '\0';
 
   /*
   SerialPrintStrLn("SUB_ENC(SUB_CRC(EEPROM_WIFI_PSK_SIZE))");
   Serial.println(SUB_ENC(SUB_CRC(EEPROM_WIFI_PSK_SIZE)));
   */
   eepromCryptRead(EEPROM_WIFI_PSK_OFFSET, psk_tmp, SUB_ENC(SUB_CRC(EEPROM_WIFI_PSK_SIZE)));
+  psk_tmp[32] = '\0';
+
+  eepromCryptRead(EEPROM_CONFIG_PASS_OFFSET, config_pass_tmp, SUB_ENC(SUB_CRC(EEPROM_CONFIG_PASS_SIZE)));
+  config_pass_tmp[63] = '\0';
 
   SerialPrintStr("ssid_tmp = ");
   Serial.println(ssid_tmp);
 
   SerialPrintStr("psk_tmp = ");
   Serial.println(psk_tmp);
+
+  SerialPrintStr("config_pass_tmp = ");
+  Serial.println(config_pass_tmp);
 
   if (strlen(ssid_tmp) <= 0) {
     SerialPrintStrLn("[loadLocalWiFiCredentials] Found empty SSID, not loading.");
@@ -1014,6 +1041,12 @@ void loadLocalWiFiCredentials() {
     SerialPrintStrLn("[loadLocalWiFiCredentials] Found empty PSK, not loading.");
   } else {
     strcpy(password, psk_tmp);
+  }
+
+  if (strlen(config_pass_tmp) <= 0) {
+    SerialPrintStrLn("[loadLocalWiFiCredentials] Found empty config AP pass, not loading.");
+  } else {
+    strcpy(config_pass, config_pass_tmp);
   }
 }
 
@@ -1029,7 +1062,7 @@ void loadLocalWiFiCredentials() {
  * @param [in]  psk     WiFi PSK to save
  * @see loadLocalWiFiCredentials()
  */
-void saveLocalWiFiCredentials(const char ssid[33], const char psk[65]) {
+void saveLocalWiFiCredentials(const char ssid[33], const char psk[65], const char config_pass[64]) {
   SerialPrintStrLn("[saveLocalWiFiCredentials] Saving WiFi credentials!");
 
   SerialPrintStrLn("[saveLocalWiFiCredentials]   Saving WiFi SSID...");
@@ -1037,6 +1070,25 @@ void saveLocalWiFiCredentials(const char ssid[33], const char psk[65]) {
   
   SerialPrintStrLn("[saveLocalWiFiCredentials]   Saving WiFi PSK...");
   eepromCryptWrite(EEPROM_WIFI_PSK_OFFSET, psk, SUB_ENC(SUB_CRC(EEPROM_WIFI_PSK_SIZE)));
+
+  SerialPrintStrLn("[saveLocalWiFiCredentials]   Saving AP configuration password...");
+  if (config_pass == NULL) {
+    // Generate one!
+    SerialPrintStrLn("[saveLocalWiFiCredentials]     Generating new AP configuration password...");
+    char config_pass_new[64];
+    hwrand_fill((uint8_t *)config_pass_new, 63);
+    int i = 0;
+    for (i = 0; i < 63; i++) {
+      // ASCII: 63-126, size = 63 + 1 = 64
+      config_pass_new[i] = ((uint8_t) config_pass_new[i] % 64) + 63;
+    }
+    config_pass_new[63] = '\0';
+    SerialPrintStr("[saveLocalWiFiCredentials]     New AP configuration password:");
+    Serial.println(config_pass_new);
+    eepromCryptWrite(EEPROM_CONFIG_PASS_OFFSET, (void *) config_pass_new, SUB_ENC(SUB_CRC(EEPROM_CONFIG_PASS_SIZE)));
+  } else {
+    eepromCryptWrite(EEPROM_CONFIG_PASS_OFFSET, (void *) config_pass, SUB_ENC(SUB_CRC(EEPROM_CONFIG_PASS_SIZE)));
+  }
 
   // Commit changes!
   EEPROM.commit();
@@ -1108,7 +1160,7 @@ void loadLocalServerCredentials() {
  * @param [in]  psk     WiFi PSK to save
  * @see loadLocalWiFiCredentials()
  */
-void saveLocalServerCredentials(const char micsense_server[65], const char use_https, const char https_fingerprint[129]) {
+void saveLocalServerCredentials(const char micsense_server[65], const int use_https, const char https_fingerprint[129]) {
   SerialPrintStrLn("[saveLocalServerCredentials] Saving server configuration!");
 
   SerialPrintStrLn("[saveLocalServerCredentials]   Saving MicSense server...");
@@ -1126,7 +1178,6 @@ void saveLocalServerCredentials(const char micsense_server[65], const char use_h
   SerialPrintStrLn("[saveLocalServerCredentials] All saved!");
 }
 
-
 void loadAllConfiguration() {
   /* WiFi Credentials */
 #if defined(PRELOAD_SSID_PSK) || defined(PRELOAD_ALL_CONFIG)
@@ -1135,7 +1186,7 @@ void loadAllConfiguration() {
   SerialPrintStrLn(PRELOAD_SSID);
   SerialPrintStr("[loadAllConfiguration] PSK:  ");
   SerialPrintStrLn(PRELOAD_PASS);
-  saveLocalWiFiCredentials(PRELOAD_SSID, PRELOAD_PASS);
+  saveLocalWiFiCredentials(PRELOAD_SSID, PRELOAD_PASS, PRELOAD_CONFIG_PASS);
 #ifndef PRELOAD_ALL_CONFIG
   PRINT_FOREVER("[loadAllConfiguration] WiFi configuration preloading complete. Please comment out PRELOAD_SSID_PSK in WiFiConfig.h and resend.");
 #else
@@ -1165,7 +1216,7 @@ void loadAllConfiguration() {
   loadLocalServerCredentials();
 
 #ifdef PRELOAD_ALL_CONFIG
-  PRINT_FOREVER("[loadAllConfiguration] All configuration has been preloaded. Please comment out PRELOAD_ALL_CONFIG in WiFiConfig.h and resend.");
+  PRINT_FOREVER("[loadAllConfiguration] All configuration has been preloaded. Please comment out PRELOAD_ALL_CONFIG in config.h and resend.");
 #endif
 }
 

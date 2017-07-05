@@ -66,10 +66,13 @@ void spiffsInit();
 void eepromInit();
 
 /* Configuration Definitions */
+void getSalt(uint8_t *salt);
 void loadLocalThresholds();
 void saveLocalThresholds();
 void loadLocalWiFiCredentials();
-void saveLocalWiFiCredentials(const char ssid[33], const char psk[65]);
+void saveLocalWiFiCredentials(const char ssid[33], const char psk[65], const char config_pass[64]);
+void loadLocalServerCredentials();
+void saveLocalServerCredentials(const char micsense_server[65], const int use_https, const char https_fingerprint[129]);
 void loadAllConfiguration();
 
 /* Specify the CRC32 size. This will always be 4 bytes. */
@@ -87,7 +90,7 @@ void loadAllConfiguration();
  * function, designed to prevent simple code peeking. (Does NOT prevent
  * any experienced people from figuring the data out, though!)
  */
-#define SALT_SIZE 512
+#define SALT_SIZE 128
 
 /* Helper macro to add the CRC data chunk size into the
  * data size calculation.
@@ -194,6 +197,17 @@ void loadAllConfiguration();
  * encrypted.
  */
 #define EEPROM_HTTPS_FINGERPRINT_SIZE ADD_CRC(ADD_ENC(128))
+
+/* Specify the EEPROM offset to read from for configuration
+ * password data chunk. This offset includes the CRC.
+ */
+#define EEPROM_CONFIG_PASS_OFFSET EEPROM_BOUNDS(EEPROM_HTTPS_FINGERPRINT_OFFSET + EEPROM_HTTPS_FINGERPRINT_SIZE)
+
+/* Specify the configuration password data chunk total size,
+ * including the CRC. Max password size is 64, and this needs
+ * to be encrypted.
+ */
+#define EEPROM_CONFIG_PASS_SIZE ADD_CRC(ADD_ENC(64))
 
 /* definition to expand macro then apply to pragma message */
 /*

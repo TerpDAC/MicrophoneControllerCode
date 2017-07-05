@@ -13,10 +13,13 @@
 /*====================================================================*/
 
 #include <ESP8266WiFi.h>
+#include <ESP8266WebServer.h>
 #include "WiFiConfig.h"
 #include "WiFiConn.h"
 #include "config.h"
 #include "util.h"
+
+ESP8266WebServer server(80);
 
 /**
  * WiFi SSID to connect to. Updated dynamically from stored configuration.
@@ -28,8 +31,10 @@ char ssid[33] = {0};
  */
 char password[65] = {0};
 
-int value = 0;
-const char* host = "www.example.com";
+/**
+ * Configuration password (PSK) for WiFi AP mode.
+ */
+char config_pass[64] = {0};
 
 /**
  * Global variable storing whether the WiFi is currently enabled or not.
@@ -168,6 +173,227 @@ void connectToWiFi() {
   wifiEnabled = 1;
 }
 
+/* WiFi AP mode */
+void setupWiFiAP() {
+  WiFi.mode(WIFI_AP);
+
+  String AP_NameString = F("MicSense ");
+  String AP_Pass;
+  
+  if (strlen(config_pass) <= 0) {
+    // Unsecured mode
+    uint8_t ap_mac[6];
+    WiFi.softAPmacAddress(ap_mac);
+    String mac_addr = String(ap_mac[5], HEX) + String(ap_mac[4], HEX) + String(ap_mac[3], HEX) + String(ap_mac[2], HEX) + String(ap_mac[1], HEX) + String(ap_mac[0], HEX);
+    AP_NameString += F("!! ");
+    AP_NameString += mac_addr;
+    AP_Pass = String(F(DEFAULT_CONFIG_PASS));
+  } else {
+    // Use part of our salt in our SSID!
+    uint8_t salt[SALT_SIZE];
+    SerialPrintStrLn("[scrambleBytesAdv] Reading salt...");
+    getSalt(salt);
+    AP_NameString += String(salt[5], HEX) + String(salt[4], HEX) + String(salt[3], HEX) + String(salt[2], HEX) + String(salt[1], HEX) + String(salt[0], HEX);
+    AP_Pass = String(config_pass);
+  }
+  
+  WiFi.softAP(AP_NameString.c_str(), AP_Pass.c_str());
+
+  IPAddress myIP = WiFi.softAPIP(); //Get IP address
+  SerialPrintStrLn("To configure, visit the hotspot IP:");
+  Serial.println(myIP);
+}
+
+void configAPModeHandleRootGET(const char *flash = NULL) {
+  String flash_s;
+
+  if (strlen(config_pass) <= 0) {
+    flash_s += F("This seems to be your first time configuring MicSense. Upon submission, a WiFi password will be generated for you. Please have a notepad ready to jot it down after submission.");
+  }
+  
+  if (flash != NULL) {
+    flash_s += String(flash);
+  }
+  
+  server.sendHeader(F("Cache-Control"), F("no-cache, no-store, must-revalidate"));
+  server.sendHeader(F("Pragma"), F("no-cache"));
+  server.sendHeader(F("Expires"), F("-1"));
+  server.setContentLength(CONTENT_LENGTH_UNKNOWN);
+  server.send(200, F("text/html"), "");
+  
+  server.sendContent(F("<html><head><meta name='viewport' content='width=device-width, initial-scale=1.0'></head><body><form action='/' method='POST'><p>"));
+  server.sendContent(flash_s);
+  server.sendContent(F("</p><br>"));
+  server.sendContent(F("<b><u>WiFi Network</u></b><br>"));
+  server.sendContent(F("SSID:<input type='text' name='ssid'><br>"));
+  server.sendContent(F("Password:<input type='text' name='psk'><br>"));
+  server.sendContent(F("<b><u>MicSense Server</u></b><br>"));
+  server.sendContent(F("Server (Hostname/IP only):<input type='text' name='server'><br>"));
+  server.sendContent(F("Enable HTTPS?<input type='checkbox' name='https_enabled' value='yes'><br>"));
+  server.sendContent(F("HTTPS Fingerprint:<input type='text' name='fingerprint'><br>"));
+  server.sendContent(F("<b>Verify that the information you've entered above is correct, then press Submit.</b><br>"));
+  server.sendContent(F("<input type='submit' name='submit' value='Submit'></form><br>"));
+  server.sendContent(F("</body></html>"));
+  DUMP_STACK_STATS();
+  server.client().stop();
+}
+
+void configAPModeHandleRootPOST() {
+  if (server.hasArg("ssid") && server.hasArg("psk") && server.hasArg("server") && server.hasArg("fingerprint")) {
+    int use_https = 0;
+    int redir_to_appass = 0;
+    loadLocalWiFiCredentials();
+    DUMP_STACK_STATS();
+    if (strlen(config_pass) <= 0) {
+      redir_to_appass = 1;
+      saveLocalWiFiCredentials(server.arg("ssid").c_str(), server.arg("psk").c_str(), NULL);
+    } else {
+      // Preserve current config_pass
+      saveLocalWiFiCredentials(server.arg("ssid").c_str(), server.arg("psk").c_str(), config_pass);
+    }
+    loadLocalWiFiCredentials();
+    DUMP_STACK_STATS();
+    
+    if (server.hasArg("https_enabled") && (server.arg("https_enabled") == "yes")) {
+      use_https = 1;
+    }
+
+    saveLocalServerCredentials(server.arg("server").c_str(), use_https, server.arg("fingerprint").c_str());
+    DUMP_STACK_STATS();
+    
+    // Do we have a password set already?
+    if (redir_to_appass == 1) {
+      server.sendHeader("Location","/appass");
+      server.sendHeader("Cache-Control","no-cache");
+      server.send(301);
+    } else {
+      server.sendHeader("Location","/done");
+      server.sendHeader("Cache-Control","no-cache");
+      server.send(301);
+    }
+  } else {
+    configAPModeHandleRootGET("Missing fields!");
+  }
+  DUMP_STACK_STATS();
+}
+
+void configAPModeHandleRoot() {
+  if (server.method() == HTTP_GET) {
+    configAPModeHandleRootGET();
+  } else {
+    configAPModeHandleRootPOST();
+  }
+}
+
+void configAPModeHandleAPPass() {
+  uint8_t salt[SALT_SIZE];
+  String AP_NameString = F("MicSense ");
+  String AP_Pass;
+  SerialPrintStrLn("[configAPModeHandleAPPass] Reading salt...");
+  getSalt(salt);
+  AP_NameString += String(salt[5], HEX) + String(salt[4], HEX) + String(salt[3], HEX) + String(salt[2], HEX) + String(salt[1], HEX) + String(salt[0], HEX);
+  AP_Pass = String(config_pass);
+
+  SerialPrintStrLn("[configAPModeHandleAPPass] Displaying page...");
+
+  server.sendHeader(F("Cache-Control"), F("no-cache, no-store, must-revalidate"));
+  server.sendHeader(F("Pragma"), F("no-cache"));
+  server.sendHeader(F("Expires"), F("-1"));
+  server.setContentLength(CONTENT_LENGTH_UNKNOWN);
+  server.send(200, F("text/html"), "");
+  
+  server.sendContent(F("<html><head><meta name='viewport' content='width=device-width, initial-scale=1.0'></head><body>"));
+  server.sendContent(F("<b><u>Configuration WiFi AP Name + Password</u></b><br>"));
+  server.sendContent(F("This MicSense node has successfully been configured. As such, it will now be secured using a different SSID and password. Please note them below:<br>"));
+  server.sendContent(F("<b>SSID:</b> <input type='text' style='font-family:monospace;' value='"));
+  server.sendContent(AP_NameString);
+  server.sendContent(F("' readonly><br>"));
+  server.sendContent(F("<b>Password:</b> <input type='text' style='font-family:monospace;' value='"));
+  server.sendContent(AP_Pass);
+  server.sendContent(F("' readonly><br><br>"));
+  server.sendContent(F("Once you are ready, click Continue.<br><br>"));
+  server.sendContent(F("<a href='/done'>Continue</a>"));
+  server.sendContent(F("</body></html>"));
+  server.client().stop();
+}
+
+void configAPModeHandleDone() {
+  server.sendHeader(F("Cache-Control"), F("no-cache, no-store, must-revalidate"));
+  server.sendHeader(F("Pragma"), F("no-cache"));
+  server.sendHeader(F("Expires"), F("-1"));
+  server.setContentLength(CONTENT_LENGTH_UNKNOWN);
+  server.send(200, F("text/html"), "");
+  
+  server.sendContent(F("<html><head><meta name='viewport' content='width=device-width, initial-scale=1.0'></head><body>"));
+  server.sendContent(F("<b><u>Done!</u></b><br><br>"));
+  server.sendContent(F("In a moment, the MicSense node will reboot with your new configuration and you will be disconnected."));
+  server.sendContent(F("</body></html>"));
+  server.client().stop();
+  delay(2000);
+  ESP.restart();
+}
+
+void configAPMode() {
+  bool ledState = false;
+  unsigned long prevMillis = millis();
+
+  SerialPrintStrLn("[configAPMode] Starting AP...");
+  setupWiFiAP();
+
+  SerialPrintStrLn("[configAPMode] Starting config...");
+  
+  /* Configure LEDs */
+  digitalWrite(2, HIGH);
+  
+  server.on("/", configAPModeHandleRoot);
+  server.on("/appass", configAPModeHandleAPPass);
+  server.on("/done", configAPModeHandleDone);
+  server.begin();
+
+  while(1) {
+    if (millis() - prevMillis > 1000) {
+      if (ledState) {
+        ledState = false;
+        digitalWrite(2, HIGH);
+      } else {
+        ledState = true;
+        digitalWrite(2, LOW);
+      }
+      prevMillis = millis();
+    }
+    server.handleClient();
+  }
+}
+
+void configAPModeProbe() {
+  unsigned long prevMillis = millis();
+  bool enterConfigAPMode = false;
+
+  SerialPrintStrLn("[configAPModeProbe] Waiting for GPIO0 to go low...");
+  
+  pinMode(0, INPUT);
+  digitalWrite(2, LOW);
+
+  while(1) {
+    if (digitalRead(0) == LOW) {
+      SerialPrintStrLn("[configAPModeProbe] Detected GPIO0 going low, starting config...");
+      enterConfigAPMode = true;
+      break;
+    }
+    if (millis() - prevMillis > 5000) {
+      break;
+    }
+    delay(1);
+  }
+  digitalWrite(2, HIGH);
+  pinMode(0, OUTPUT);
+  digitalWrite(0, LOW);
+  
+  if (enterConfigAPMode) {
+    configAPMode();
+  }
+}
+
 /* Client timeout handler */
 bool waitForClient(WiFiClient client) {
   unsigned long timeout = millis();
@@ -179,45 +405,6 @@ bool waitForClient(WiFiClient client) {
     }
   }
   return true;
-}
-
-/* Test WiFi by grabbing a webpage. */
-void wifiTest() {
-  SerialPrintStr("performing wifi test in 5s...");
-  delay(5000);
-  ++value;
- 
-  SerialPrintStr("connecting to ");
-  Serial.println(host);
-  
-  // Use WiFiClient class to create TCP connections
-  WiFiClient client;
-  const int httpPort = 80;
-  if (!client.connect(host, httpPort)) {
-    SerialPrintStrLn("connection failed");
-    return;
-  }
-  
-  // We now create a URI for the request
-  //String url = "/testwifi/index.html";
-  String url = "/";
-  SerialPrintStr("Requesting URL: ");
-  Serial.println(url);
-  
-  // This will send the request to the server
-  client.print(String("GET ") + url + " HTTP/1.1\r\n" +
-               "Host: " + host + "\r\n" + 
-               "Connection: close\r\n\r\n");
-  delay(500);
-  
-  // Read all the lines of the reply from server and print them to Serial
-  while(client.available()){
-    String line = client.readStringUntil('\r');
-    Serial.print(line);
-  }
-  
-  Serial.println();
-  SerialPrintStrLn("closing connection");
 }
 
 /* Disable WiFi. */

@@ -26,7 +26,7 @@ void ser_p(const char *fmt, ... );
 /* Stack statistics function - print the current stack status */
 register uint32_t *sp asm("a1");
 
-#define DUMP_STACK_STATS() Serial.printf("unmodified stack   = %4d\n", cont_get_free_stack(&g_cont)); \
-  Serial.printf("current free stack = %4d\n", 4 * (sp - g_cont.stack))
+#define DUMP_STACK_STATS() SerialPrintStr("unmodified stack   = "); Serial.println(cont_get_free_stack(&g_cont)); \
+  SerialPrintStr("current free stack = "); Serial.println(4 * (sp - g_cont.stack))
 
 #endif

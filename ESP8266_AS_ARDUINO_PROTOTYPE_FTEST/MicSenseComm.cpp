@@ -172,7 +172,8 @@ bool sturdyHTTP(String url, int attempts) {
       SerialPrintStrLn(" bytes read)");
       success = true;
     } else {
-      Serial.printf("[sturdyHTTP] HTTP GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
+      SerialPrintStr("[sturdyHTTP] HTTP GET... failed, error: ");
+      Serial.println(http.errorToString(httpCode).c_str());
       success = false;
     }
   
@@ -195,7 +196,18 @@ void submitSum(uint32_t curTime, long totalSampleCount, long highTotalCount, lon
   // URL
   String mac_addr = String(mac[5], HEX) + String(mac[4], HEX) + String(mac[3], HEX) + String(mac[2], HEX) + String(mac[1], HEX) + String(mac[0], HEX);
 
-  String final_url = (https_enabled ? "https://" : "http://") + String(micsense_server) + "/datasubmit?id=" + mac_addr + "&d=" + String(now()) + "," + String(highTotalCount) + "," + String(midTotalCount) + "," + String(totalSampleCount - (highTotalCount + midTotalCount));
+  String final_url = (https_enabled ? F("https://") : F("http://"));
+  final_url += String(micsense_server);
+  final_url += F("/datasubmit?id=");
+  final_url += mac_addr;
+  final_url += F("&d=");
+  final_url += String(now());
+  final_url += F(",");
+  final_url += String(highTotalCount);
+  final_url += F(",");
+  final_url += String(midTotalCount);
+  final_url += F(",");
+  final_url += String(totalSampleCount - (highTotalCount + midTotalCount));
 
 #ifdef ENABLE_DEBUG_SERIAL
   // Print out the request we're going to send!
@@ -222,7 +234,10 @@ void getCalibration() {
   // URL
   String mac_addr = String(mac[5], HEX) + String(mac[4], HEX) + String(mac[3], HEX) + String(mac[2], HEX) + String(mac[1], HEX) + String(mac[0], HEX);
 
-  String final_url = (https_enabled ? "https://" : "http://") + String(micsense_server) + "/calibrate?id=" + mac_addr;
+  String final_url = (https_enabled ? F("https://") : F("http://"));
+  final_url += String(micsense_server);
+  final_url += F("/calibrate?id=");
+  final_url += mac_addr;
 
 #ifdef ENABLE_DEBUG_SERIAL
   // Print out the request we're going to send!
